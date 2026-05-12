@@ -12,7 +12,7 @@ async function bootstrap() {
 
   // Permite peticiones desde el frontend (puerto 3001) hacia este backend
   app.enableCors({
-    origin: 'http://localhost:3001',
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
   });
 
   // Aplica validación estricta de DTOs en todas las rutas

@@ -8,7 +8,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
       type: 'sqlite',
       database: 'data/database.sqlite',
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: process.env.NODE_ENV !== 'production',
     }),
     AppointmentsModule,
   ],
