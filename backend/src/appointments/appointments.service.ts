@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Appointment } from './appointment.entity';
@@ -21,29 +21,56 @@ export class AppointmentsService {
    * Las devuelve ordenadas por fecha y hora de forma ascendente.
    * @returns Lista completa de reservas (Appointment[])
    */
-  findAll() {
-    return this.appointmentsRepository.find({
+  async findAll() {
+    return await this.appointmentsRepository.find({
       order: { date: 'ASC', time: 'ASC' },
     });
   }
 
   /**
    * Busca una reserva específica utilizando su ID.
+   * Lanzará una excepción si la reserva no existe.
    * @param id El identificador único de la reserva.
-   * @returns La reserva encontrada o un valor nulo si no existe.
+   * @throws NotFoundException si no se encuentra la reserva.
+   * @returns La reserva encontrada.
    */
-  findOne(id: number) {
-    return this.appointmentsRepository.findOneBy({ id });
+  async findOne(id: number) {
+    const appointment = await this.appointmentsRepository.findOneBy({ id });
+    
+    if (!appointment) {
+      throw new NotFoundException(`No existe la reserva con id ${id}`);
+    }
+    
+    return appointment;
   }
 
   /**
    * Crea una nueva reserva en el sistema y la guarda en la base de datos.
+   * Incluye validaciones para evitar fechas pasadas y citas duplicadas en el mismo horario.
    * @param createAppointmentDto Los datos validados provenientes de la petición.
+   * @throws BadRequestException si la fecha es pasada o el horario ya está ocupado.
    * @returns La nueva reserva creada con su ID asignado.
    */
-  create(createAppointmentDto: CreateAppointmentDto) {
+  async create(createAppointmentDto: CreateAppointmentDto) {
+    const { date, time, businessId } = createAppointmentDto;
+
+    // 1. Validación: Evitar reservas en fechas pasadas
+    const today = new Date().toISOString().split('T')[0];
+    if (date < today) {
+      throw new BadRequestException('No se pueden realizar reservas en fechas pasadas.');
+    }
+
+    // 2. Validación: Evitar duplicados (mismo negocio, mismo día, misma hora)
+    const isSlotBusy = await this.appointmentsRepository.findOne({
+      where: { date, time, businessId },
+    });
+
+    if (isSlotBusy) {
+      throw new BadRequestException('Este horario ya se encuentra reservado para este establecimiento.');
+    }
+
     const appointment = this.appointmentsRepository.create(createAppointmentDto);
-    return this.appointmentsRepository.save(appointment);
+    return await this.appointmentsRepository.save(appointment);
   }
 
   /**
@@ -54,18 +81,15 @@ export class AppointmentsService {
    * @returns La reserva con los datos actualizados.
    */
   async update(id: number, updateAppointmentDto: UpdateAppointmentDto) {
-    const appointment = await this.appointmentsRepository.findOneBy({ id });
-
-    if (!appointment) {
-      throw new NotFoundException(`No existe la reserva con id ${id}`);
-    }
+    // Verificamos existencia usando el método findOne ya definido
+    const appointment = await this.findOne(id);
 
     const updatedAppointment = this.appointmentsRepository.merge(
       appointment,
       updateAppointmentDto,
     );
 
-    return this.appointmentsRepository.save(updatedAppointment);
+    return await this.appointmentsRepository.save(updatedAppointment);
   }
 
   /**
@@ -75,11 +99,8 @@ export class AppointmentsService {
    * @returns Un objeto con un mensaje de éxito.
    */
   async remove(id: number) {
-    const appointment = await this.appointmentsRepository.findOneBy({ id });
-
-    if (!appointment) {
-      throw new NotFoundException(`No existe la reserva con id ${id}`);
-    }
+    // Verificamos existencia antes de intentar borrar
+    const appointment = await this.findOne(id);
 
     await this.appointmentsRepository.remove(appointment);
 
