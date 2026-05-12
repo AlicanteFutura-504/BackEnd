@@ -1,0 +1,467 @@
+# DOCUMENTO 2: AUDITORÍA DE BACKEND
+
+> **Proyecto:** `bookings-backend`
+> **Stack:** NestJS 11 · TypeORM 0.3 · SQLite · Swagger
+> **Fecha:** 12/05/2026
+
+---
+
+## FALLO B-01 — `process.env` no carga `.env` sin `@nestjs/config`
+
+### Ubicación del fallo
+- [main.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/main.ts) — Línea 15
+- [app.module.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/app.module.ts) — Línea 11
+- [.env](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/.env) — Línea 9
+
+### Descripción del fallo
+
+El archivo `.env` define `CORS_ORIGIN=http://localhost:3001` y el código lo lee:
+
+```ts
+origin: process.env.CORS_ORIGIN || 'http://localhost:3001',        // main.ts:15
+synchronize: process.env.NODE_ENV !== 'production',                 // app.module.ts:11
+```
+
+Sin embargo, **NestJS no carga archivos `.env` automáticamente**. Se necesita `@nestjs/config` con `ConfigModule.forRoot()` o el paquete `dotenv`. El paquete `@nestjs/config` **no está en `package.json`**.
+
+Actualmente funciona **por el fallback** (`|| 'http://localhost:3001'`), y `NODE_ENV` es `undefined` en desarrollo
+ (lo que hace `undefined !== 'production'` → `true`, que es el comportamiento deseado por casualidad). Pero si se despliega con variables en `.env` sin cargarlas, las configuraciones no se aplicarán.
+
+### Solución (Aprendizaje guiado)
+
+**¿Por qué ocurre?** NestJS no integra `dotenv` por defecto. El módulo oficial `@nestjs/config` es un wrapper que registra las variables como inyectables.
+
+**Paso 1** — Instalar la dependencia:
+
+```bash
+npm install @nestjs/config
+```
+
+**Paso 2** — Registrar `ConfigModule` en `app.module.ts`:
+
+```ts
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { AppointmentsModule } from './appointments/appointments.module';
+
+/**
+ * Módulo raíz de la aplicación NestJS.
+ * Registra la configuración global, la conexión a base de datos
+ * y todos los módulos de dominio.
+ */
+@Module({
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    TypeOrmModule.forRoot({
+      type: 'sqlite',
+      database: 'data/database.sqlite',
+      autoLoadEntities: true,
+      synchronize: process.env.NODE_ENV !== 'production',
+    }),
+    AppointmentsModule,
+  ],
+})
+export class AppModule {}
+```
+
+### Relación de dependencia
+
+**Impacto directo en el Frontend.** Si `CORS_ORIGIN` no se lee correctamente, el backend rechazará peticiones CORS del frontend en entornos donde no se use el fallback por defecto.
+
+---
+
+## FALLO B-02 — `UpdateAppointmentDto` importa de `@nestjs/mapped-types` en lugar de `@nestjs/swagger`
+
+### Ubicación del fallo
+- [update-appointment.dto.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/appointments/dto/update-appointment.dto.ts) — Línea 1
+
+### Descripción del fallo
+
+```ts
+import { PartialType } from '@nestjs/mapped-types';
+```
+
+El paquete `@nestjs/mapped-types` **no está declarado en `package.json`**. Funciona porque `@nestjs/swagger` lo reexporta internamente como dependencia transitiva, pero:
+
+1. Es una **dependencia implícita** que puede romperse si se actualiza `@nestjs/swagger`.
+2. Al usar `PartialType` de `@nestjs/mapped-types`, **Swagger no documenta los campos del DTO de update** como opcionales. La documentación interactiva muestra el schema vacío.
+
+### Solución (Aprendizaje guiado)
+
+**¿Por qué importa?** `@nestjs/swagger` exporta su propio `PartialType` que además de hacer los campos opcionales, **propaga los decoradores `@ApiProperty`** al schema de Swagger.
+
+```ts
+import { PartialType } from '@nestjs/swagger';
+import { CreateAppointmentDto } from './create-appointment.dto';
+
+/**
+ * DTO para la actualización parcial de una reserva (PATCH).
+ * Extiende {@link CreateAppointmentDto} haciendo todos sus campos opcionales.
+ * Al usar `PartialType` de `@nestjs/swagger`, los decoradores `@ApiProperty`
+ * se heredan automáticamente con `required: false`.
+ */
+export class UpdateAppointmentDto extends PartialType(CreateAppointmentDto) {}
+```
+
+### Relación de dependencia
+
+**Impacto en el Frontend.** Swagger muestra un schema incompleto para `PATCH`, lo que dificulta al equipo de frontend saber qué campos puede enviar en las actualizaciones parciales.
+
+---
+
+## FALLO B-03 — Archivos muertos: `AppController` y `AppService` no registrados
+
+### Ubicación del fallo
+- [app.controller.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/app.controller.ts)
+- [app.service.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/app.service.ts)
+- [app.controller.spec.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/app.controller.spec.ts)
+- [app.module.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/app.module.ts) — No tiene `controllers` ni `providers`
+
+### Descripción del fallo
+
+`AppModule` no registra `AppController` ni `AppService`:
+
+```ts
+@Module({
+  imports: [
+    TypeOrmModule.forRoot({...}),
+    AppointmentsModule,
+  ],
+  // ← Sin controllers ni providers
+})
+export class AppModule {}
+```
+
+Los archivos existen pero son código muerto del scaffold de NestJS. El test unitario `app.controller.spec.ts` también es inútil.
+
+### Solución (Aprendizaje guiado)
+
+**¿Por qué es importante limpiar código muerto?** Reduce la superficie de confusión, mantiene el proyecto limpio y evita que futuros desarrolladores pierdan tiempo leyendo código que no se ejecuta.
+
+**Eliminar los archivos:**
+```bash
+del src\app.controller.ts
+del src\app.controller.spec.ts
+del src\app.service.ts
+```
+
+### Relación de dependencia
+
+**Sin impacto funcional en el Frontend.** Los archivos no se cargan ni exponen endpoints.
+
+---
+
+## FALLO B-04 — Validación de fecha pasada con comparación lexicográfica de strings
+
+### Ubicación del fallo
+- [appointments.service.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/appointments/dto/../appointments.service.ts) — Líneas 57-61
+
+### Descripción del fallo
+
+```ts
+const today = new Date().toISOString().split('T')[0];
+if (date < today) {
+  throw new BadRequestException('No se pueden realizar reservas en fechas pasadas.');
+}
+```
+
+La comparación `date < today` funciona **solo porque el formato ISO `YYYY-MM-DD` es lexicográficamente ordenable**. Sin embargo:
+
+1. **`new Date()` usa UTC**, no la zona horaria local del servidor. A las 23:30 en España (UTC+2), `toISOString()` ya devuelve la fecha del día siguiente. Un usuario podría no poder crear reservas para "hoy" a última hora.
+2. **No valida formato**: si el frontend envía `"21-04-2026"` (DD-MM-YYYY), la comparación da resultados incorrectos sin lanzar error.
+
+### Solución (Aprendizaje guiado)
+
+**¿Por qué falla con UTC?** `new Date().toISOString()` devuelve siempre en UTC. Si el servidor está en `Europe/Madrid` (UTC+2), a las 23:00 local, `toISOString()` devolverá la fecha del día siguiente en UTC.
+
+```ts
+/**
+ * Obtiene la fecha actual en formato ISO (YYYY-MM-DD) según la zona
+ * horaria del servidor, evitando el desfase de UTC.
+ *
+ * @returns {string} Fecha local del servidor en formato 'YYYY-MM-DD'.
+ */
+private getLocalToday(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+```
+
+Uso en `create()`:
+
+```ts
+const today = this.getLocalToday();
+if (date < today) {
+  throw new BadRequestException(
+    'No se pueden realizar reservas en fechas pasadas.',
+  );
+}
+```
+
+Adicionalmente, añadir `@Matches` en el DTO para validar el formato:
+
+```ts
+import { Matches } from 'class-validator';
+
+/** Fecha en formato ISO YYYY-MM-DD. */
+@ApiProperty({ example: '2026-04-20' })
+@IsString()
+@Matches(/^\d{4}-\d{2}-\d{2}$/, {
+  message: 'La fecha debe tener formato YYYY-MM-DD',
+})
+date: string;
+```
+
+### Relación de dependencia
+
+**Impacto directo en el Frontend.** Si el usuario crea una reserva para "hoy" por la noche, el backend puede rechazarla erróneamente porque internamente ya es "mañana" en UTC.
+
+---
+
+## FALLO B-05 — `update` no valida duplicados de horario al cambiar fecha/hora
+
+### Ubicación del fallo
+- [appointments.service.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/appointments/service.ts) — Líneas 83-93
+
+### Descripción del fallo
+
+El método `create()` valida duplicados (mismo `date` + `time` + `businessId`), pero `update()` **no realiza esta validación**:
+
+```ts
+async update(id: number, updateAppointmentDto: UpdateAppointmentDto) {
+  const appointment = await this.findOne(id);
+  const updatedAppointment = this.appointmentsRepository.merge(
+    appointment,
+    updateAppointmentDto,
+  );
+  return await this.appointmentsRepository.save(updatedAppointment);
+}
+```
+
+Un usuario podría editar una reserva cambiando su hora a un slot ya ocupado, creando una **doble reserva**.
+
+### Solución (Aprendizaje guiado)
+
+**¿Por qué importa?** La validación de negocio debe aplicarse tanto en creación como en edición. De lo contrario, la integridad del calendario se rompe.
+
+```ts
+/**
+ * Actualiza parcialmente una reserva existente.
+ * Valida que no se generen conflictos de horario al cambiar fecha, hora o negocio.
+ *
+ * @param {number} id - Identificador de la reserva a modificar.
+ * @param {UpdateAppointmentDto} updateAppointmentDto - Campos a actualizar.
+ * @throws {NotFoundException} Si la reserva no existe.
+ * @throws {BadRequestException} Si el nuevo horario ya está ocupado.
+ * @returns {Promise<Appointment>} La reserva con los datos actualizados.
+ */
+async update(id: number, updateAppointmentDto: UpdateAppointmentDto) {
+  const appointment = await this.findOne(id);
+
+  // Determinar los valores finales (nuevos o existentes)
+  const finalDate = updateAppointmentDto.date ?? appointment.date;
+  const finalTime = updateAppointmentDto.time ?? appointment.time;
+  const finalBusinessId =
+    updateAppointmentDto.businessId ?? appointment.businessId;
+
+  // Verificar conflicto solo si cambia fecha, hora o negocio
+  const hasScheduleChange =
+    finalDate !== appointment.date ||
+    finalTime !== appointment.time ||
+    finalBusinessId !== appointment.businessId;
+
+  if (hasScheduleChange) {
+    const conflict = await this.appointmentsRepository.findOne({
+      where: { date: finalDate, time: finalTime, businessId: finalBusinessId },
+    });
+
+    if (conflict && conflict.id !== id) {
+      throw new BadRequestException(
+        'Este horario ya se encuentra reservado para este establecimiento.',
+      );
+    }
+  }
+
+  const updatedAppointment = this.appointmentsRepository.merge(
+    appointment,
+    updateAppointmentDto,
+  );
+
+  return await this.appointmentsRepository.save(updatedAppointment);
+}
+```
+
+### Relación de dependencia
+
+**Impacto directo en el Frontend.** El formulario de edición del frontend (`BookingsClient.tsx`) permite cambiar fecha y hora sin restricción. Sin esta validación en el backend, el usuario puede crear conflictos de agenda sin saberlo.
+
+---
+
+## FALLO B-06 — `synchronize: true` es peligroso fuera de desarrollo
+
+### Ubicación del fallo
+- [app.module.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/app.module.ts) — Línea 11
+
+### Descripción del fallo
+
+```ts
+synchronize: process.env.NODE_ENV !== 'production',
+```
+
+Si bien la intención es correcta (desactivar `synchronize` en producción), como se documentó en B-01, **`process.env.NODE_ENV` es `undefined`** sin `@nestjs/config` o `dotenv`. Esto significa que `synchronize` es **siempre `true`**, incluso si se desplegase con `NODE_ENV=production` en un `.env` sin cargador.
+
+### Solución (Aprendizaje guiado)
+
+**¿Por qué es peligroso `synchronize: true` en producción?** TypeORM recrea el schema automáticamente basándose en las entidades. Si se elimina una columna de una entidad, TypeORM puede **borrar esa columna con todos sus datos** en la base de datos real.
+
+La solución viene ligada a B-01: instalar `@nestjs/config` asegura que `NODE_ENV` se lea correctamente. Adicionalmente, se puede ser más explícito:
+
+```ts
+TypeOrmModule.forRoot({
+  type: 'sqlite',
+  database: 'data/database.sqlite',
+  autoLoadEntities: true,
+  // NUNCA activar synchronize en producción: usar migraciones
+  synchronize: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
+}),
+```
+
+### Relación de dependencia
+
+**Impacto crítico en datos.** Si se despliega en producción con `synchronize: true`, un cambio en la entidad podría borrar columnas con datos reales, afectando a todo el frontend que depende de esos campos.
+
+---
+
+## FALLO B-07 — `CreateAppointmentDto` no valida formatos de `date` y `time`
+
+### Ubicación del fallo
+- [create-appointment.dto.ts](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/src/appointments/dto/create-appointment.dto.ts) — Líneas 12-19
+
+### Descripción del fallo
+
+```ts
+@IsString()
+date: string;   // Acepta cualquier string: "hola", "32-99-0000", etc.
+
+@IsString()
+time: string;   // Acepta cualquier string: "99:99", "abc", etc.
+```
+
+`@IsString()` solo verifica que el tipo sea string, pero no valida el **formato**. El backend acepta fechas y horas con formato inválido que luego se almacenan en SQLite tal cual.
+
+### Solución (Aprendizaje guiado)
+
+**¿Por qué importa?** Sin validación de formato, la base de datos acumula datos inconsistentes que el frontend no puede parsear correctamente (ej: `formatDate()` en `BookingsClient.tsx` fallaría).
+
+```ts
+import { ApiProperty } from '@nestjs/swagger';
+import { IsEnum, IsInt, IsString, Matches } from 'class-validator';
+import { AppointmentStatus } from '../appointment.entity';
+
+/**
+ * DTO para la creación de una reserva.
+ * Define y valida la estructura del body JSON en peticiones POST.
+ */
+export class CreateAppointmentDto {
+  /**
+   * Fecha de la reserva en formato ISO 8601.
+   * @example "2026-04-20"
+   */
+  @ApiProperty({ example: '2026-04-20' })
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'date debe tener formato YYYY-MM-DD',
+  })
+  date: string;
+
+  /**
+   * Hora de la reserva en formato 24h.
+   * @example "10:30"
+   */
+  @ApiProperty({ example: '10:30' })
+  @IsString()
+  @Matches(/^\d{2}:\d{2}$/, {
+    message: 'time debe tener formato HH:mm',
+  })
+  time: string;
+
+  /** Estado inicial de la reserva. */
+  @ApiProperty({ enum: AppointmentStatus, example: AppointmentStatus.PENDING })
+  @IsEnum(AppointmentStatus)
+  status: AppointmentStatus;
+
+  /** ID del cliente (entero positivo). */
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  customerId: number;
+
+  /** ID del negocio (entero positivo). */
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  businessId: number;
+
+  /** Nombre del servicio reservado. */
+  @ApiProperty({ example: 'Corte de pelo' })
+  @IsString()
+  serviceName: string;
+}
+```
+
+### Relación de dependencia
+
+**Impacto directo en el Frontend.** Si se almacenan fechas con formato incorrecto, `formatDate()` en `BookingsClient.tsx` (línea 61-71) fallará silenciosamente y mostrará la fecha sin formato.
+
+---
+
+## FALLO B-08 — Falta `.env` en `.gitignore` del backend
+
+### Ubicación del fallo
+- [.env](file:///e:/Alicante%20Futura/BootCamp-Alicante-Futura-504/bookings-backend/backend/.env) — Comentario en línea 4: `"NO subas este archivo a Git"`
+
+### Descripción del fallo
+
+El propio archivo `.env` dice "añádelo a `.gitignore`", pero al verificar el `.gitignore` del repositorio raíz, `.env` podría o no estar incluido. El riesgo es que credenciales o URLs de producción se suban al repositorio.
+
+### Solución (Aprendizaje guiado)
+
+Añadir al `.gitignore` del backend:
+
+```gitignore
+# Variables de entorno (pueden contener secrets)
+.env
+.env.local
+.env.*.local
+```
+
+Y crear un `.env.example` versionado:
+
+```env
+# Copiar como .env y ajustar valores
+CORS_ORIGIN=http://localhost:3001
+NODE_ENV=development
+```
+
+### Relación de dependencia
+
+**Impacto en seguridad.** Si se sube un `.env` con la URL de producción del frontend, se expone información de infraestructura.
+
+---
+
+## Resumen de fallos del Backend
+
+| ID | Severidad | Archivo principal | Estado |
+|----|-----------|-------------------|--------|
+| B-01 | 🔴 Crítica | `app.module.ts` / `main.ts` | Pendiente |
+| B-02 | 🟠 Alta | `update-appointment.dto.ts` | Pendiente |
+| B-03 | 🟢 Baja | `app.controller.ts` (código muerto) | Pendiente |
+| B-04 | 🟠 Alta | `appointments.service.ts` | Pendiente |
+| B-05 | 🟠 Alta | `appointments.service.ts` | Pendiente |
+| B-06 | 🔴 Crítica | `app.module.ts` | Pendiente |
+| B-07 | 🟠 Alta | `create-appointment.dto.ts` | Pendiente |
+| B-08 | 🟡 Media | `.env` / `.gitignore` | Pendiente |
