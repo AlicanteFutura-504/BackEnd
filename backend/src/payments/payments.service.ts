@@ -35,18 +35,18 @@ export class PaymentsService {
    * @returns El pago encontrado.
    */
   async findOne(id: number) {
-    const appointment = await this.paymentsRepository.findOneBy({ id });
+    const payment = await this.paymentsRepository.findOneBy({ id });
 
-    if (!appointment) {
+    if (!payment) {
       throw new NotFoundException(`No existe el pago con id ${id}`);
     }
 
-    return appointment;
+    return payment;
   }
 
   /**
-   * Crea una nueva reserva en el sistema y la guarda en la base de datos.
-   * Incluye validaciones para evitar fechas pasadas y citas duplicadas en el mismo horario.
+   * Crea un nuevo pago en el sistema y la guarda en la base de datos.
+   * Incluye validaciones para evitar pagos duplicados en el mismo horario.
    * @param createPaymentDto Los datos validados provenientes de la petición.
    * @throws BadRequestException si la fecha es pasada o el horario ya está ocupado.
    * @returns El nuevo pago creado con su ID asignado.
@@ -82,27 +82,27 @@ export class PaymentsService {
    */
   async update(id: number, updatePaymentDto: UpdatePaymentDto) {
     // Verificamos existencia usando el método findOne ya definido
-    const appointment = await this.findOne(id);
+    const payment = await this.findOne(id);
 
-    const updatedAppointment = this.paymentsRepository.merge(
-      appointment,
+    const updatedPayment = this.paymentsRepository.merge(
+      payment,
       updatePaymentDto,
     );
 
-    return await this.paymentsRepository.save(updatedAppointment);
+    return await this.paymentsRepository.save(updatedPayment);
   }
 
   /**
-   * Elimina una reserva de la base de datos de manera permanente.
-   * @param id Identificador de la reserva a eliminar.
-   * @throws NotFoundException Si la   reserva no existe.
+   * Elimina un pago de la base de datos de manera permanente.
+   * @param id Identificador del pago a eliminar.
+   * @throws NotFoundException Si el pago no existe.
    * @returns Un objeto con un mensaje de éxito.
    */
   async remove(id: number) {
     // Verificamos existencia antes de intentar borrar
-    const appointment = await this.findOne(id);
+    const payment = await this.findOne(id);
 
-    await this.paymentsRepository.remove(appointment);
+    await this.paymentsRepository.remove(payment);
 
     return { message: `Pago ${id} eliminado correctamente` };
   }
