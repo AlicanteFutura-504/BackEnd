@@ -13,5 +13,4 @@ import { AppointmentsModule } from './appointments/appointments.module';
     AppointmentsModule,
   ],
 })
-export class AppModule {}{}
-// c
+export class AppModule {}
