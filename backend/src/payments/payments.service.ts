@@ -69,8 +69,8 @@ export class PaymentsService {
       throw new BadRequestException('Este horario ya se encuentra reservado para este establecimiento.');
     }
 
-    const appointment = this.paymentsRepository.create(createPaymentDto);
-    return await this.paymentsRepository.save(appointment);
+    const payment = this.paymentsRepository.create(createPaymentDto);
+    return await this.paymentsRepository.save(payment);
   }
 
   /**
