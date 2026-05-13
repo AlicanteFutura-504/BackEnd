@@ -55,9 +55,11 @@ export class AppointmentsService {
     const { date, time, businessId } = createAppointmentDto;
 
     // 1. Validación: Evitar reservas en fechas pasadas
-    const today = new Date().toISOString().split('T')[0];
+    const today = this.getLocalToday();
     if (date < today) {
-      throw new BadRequestException('No se pueden realizar reservas en fechas pasadas.');
+      throw new BadRequestException(
+        'No se pueden realizar reservas en fechas pasadas.',
+      );
     }
 
     // 2. Validación: Evitar duplicados (mismo negocio, mismo día, misma hora)
@@ -66,7 +68,9 @@ export class AppointmentsService {
     });
 
     if (isSlotBusy) {
-      throw new BadRequestException('Este horario ya se encuentra reservado para este establecimiento.');
+      throw new BadRequestException(
+        'Este horario ya se encuentra reservado para este establecimiento.',
+      );
     }
 
     const appointment = this.appointmentsRepository.create(createAppointmentDto);
@@ -75,14 +79,44 @@ export class AppointmentsService {
 
   /**
    * Actualiza parcialmente una reserva existente.
-   * @param id Identificador de la reserva a modificar.
-   * @param updateAppointmentDto Campos a actualizar.
-   * @throws NotFoundException Si la reserva no existe.
-   * @returns La reserva con los datos actualizados.
+   * Valida que no se generen conflictos de horario al cambiar fecha, hora o negocio.
+   *
+   * @param {number} id - Identificador de la reserva a modificar.
+   * @param {UpdateAppointmentDto} updateAppointmentDto - Campos a actualizar.
+   * @throws {NotFoundException} Si la reserva no existe.
+   * @throws {BadRequestException} Si el nuevo horario ya está ocupado.
+   * @returns {Promise<Appointment>} La reserva con los datos actualizados.
    */
   async update(id: number, updateAppointmentDto: UpdateAppointmentDto) {
-    // Verificamos existencia usando el método findOne ya definido
     const appointment = await this.findOne(id);
+
+    // Determinar los valores finales (nuevos o existentes) para validar conflictos
+    const finalDate = updateAppointmentDto.date ?? appointment.date;
+    const finalTime = updateAppointmentDto.time ?? appointment.time;
+    const finalBusinessId =
+      updateAppointmentDto.businessId ?? appointment.businessId;
+
+    // Verificar conflicto solo si cambia fecha, hora o establecimiento
+    const hasScheduleChange =
+      finalDate !== appointment.date ||
+      finalTime !== appointment.time ||
+      finalBusinessId !== appointment.businessId;
+
+    if (hasScheduleChange) {
+      const conflict = await this.appointmentsRepository.findOne({
+        where: {
+          date: finalDate,
+          time: finalTime,
+          businessId: finalBusinessId,
+        },
+      });
+
+      if (conflict && conflict.id !== id) {
+        throw new BadRequestException(
+          'Este horario ya se encuentra reservado para este establecimiento.',
+        );
+      }
+    }
 
     const updatedAppointment = this.appointmentsRepository.merge(
       appointment,
@@ -90,6 +124,20 @@ export class AppointmentsService {
     );
 
     return await this.appointmentsRepository.save(updatedAppointment);
+  }
+
+  /**
+   * Obtiene la fecha actual en formato ISO (YYYY-MM-DD) según la zona
+   * horaria del servidor, evitando el desfase de UTC que tiene toISOString().
+   *
+   * @returns {string} Fecha local del servidor en formato 'YYYY-MM-DD'.
+   */
+  private getLocalToday(): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   /**
