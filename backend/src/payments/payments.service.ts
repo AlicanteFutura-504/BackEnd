@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Payment } from './payments.entity';
@@ -18,13 +18,10 @@ export class PaymentsService {
 
   /**
    * Obtiene todos los pagos de la base de datos.
-   * Las devuelve ordenadas por fecha y hora de forma ascendente.
    * @returns Lista completa de pagos (Payment[])
    */
   async findAll() {
-    return await this.paymentsRepository.find({
-      order: { date: 'ASC', time: 'ASC' },
-    });
+    return await this.paymentsRepository.find();
   }
 
   /**
@@ -45,30 +42,11 @@ export class PaymentsService {
   }
 
   /**
-   * Crea un nuevo pago en el sistema y la guarda en la base de datos.
-   * Incluye validaciones para evitar pagos duplicados en el mismo horario.
+   * Crea un nuevo pago en el sistema y lo guarda en la base de datos.
    * @param createPaymentDto Los datos validados provenientes de la petición.
-   * @throws BadRequestException si la fecha es pasada o el horario ya está ocupado.
    * @returns El nuevo pago creado con su ID asignado.
    */
   async create(createPaymentDto: CreatePaymentDto) {
-    const { date, time, businessId } = createPaymentDto;
-
-    // 1. Validación: Evitar reservas en fechas pasadas
-    const today = new Date().toISOString().split('T')[0];
-    if (date < today) {
-      throw new BadRequestException('No se pueden realizar reservas en fechas pasadas.');
-    }
-
-    // 2. Validación: Evitar duplicados (mismo negocio, mismo día, misma hora)
-    const isSlotBusy = await this.paymentsRepository.findOne({
-      where: { date, time, businessId },
-    });
-
-    if (isSlotBusy) {
-      throw new BadRequestException('Este horario ya se encuentra reservado para este establecimiento.');
-    }
-
     const payment = this.paymentsRepository.create(createPaymentDto);
     return await this.paymentsRepository.save(payment);
   }

@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsString } from 'class-validator';
-import { PaymentStatus } from '../payments.entity';
+import { IsEnum, IsNumber, IsString } from 'class-validator';
+import { PaymentStatus, PaymentType } from '../payments.entity';
 
 /**
  * DTO (Data Transfer Object) para la creación de un pago.
@@ -8,17 +8,7 @@ import { PaymentStatus } from '../payments.entity';
  * La librería 'class-validator' comprobará que cada campo cumpla la condición.
  */
 export class CreatePaymentDto {
-  /** Debe ser texto obligatoriamente. Ejemplo: '2026-04-20' */
-  @ApiProperty({ example: '2026-04-20' })
-  @IsString()
-  date: string;
-
-  /** Formato de texto para la hora. Ejemplo: '10:30' */
-  @ApiProperty({ example: '10:30' })
-  @IsString()
-  time: string;
-
-  /** Solo se permite uno de los textos válidos de PaymentStatus. */
+  /** Estado actual del pago. */
   @ApiProperty({
     enum: PaymentStatus,
     example: PaymentStatus.PENDING,
@@ -26,18 +16,26 @@ export class CreatePaymentDto {
   @IsEnum(PaymentStatus)
   status: PaymentStatus;
 
-  /** El ID del cliente tiene que enviarse como número entero. */
-  @ApiProperty({ example: 1 })
-  @IsInt()
-  customerId: number;
+  /** Tipo de pago (tarjeta, efectivo, bizum, etc.). */
+  @ApiProperty({
+    enum: PaymentType,
+    example: PaymentType.CARD,
+  })
+  @IsEnum(PaymentType)
+  type: PaymentType;
 
-  /** El ID del negocio también debe ser un número entero. */
-  @ApiProperty({ example: 1 })
-  @IsInt()
-  businessId: number;
-
-  /** Un texto libre identificando al servicio. */
-  @ApiProperty({ example: 'Corte de pelo' })
+  /** Nombre del cliente que realiza el pago. */
+  @ApiProperty({ example: 'María López' })
   @IsString()
-  serviceName: string;
-}
+  clientName: string;
+
+  /** Nombre de la empresa o local en el que se ejecuta el pago. */
+  @ApiProperty({ example: 'Peluquería Nova' })
+  @IsString()
+  businessName: string;
+
+  /** Importe del pago. */
+  @ApiProperty({ example: 28.5 })
+  @IsNumber()
+  amount: number;
+}
