@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { PaymentsModule } from './payments/payments.module';
 
 /**
  * Módulo raíz de la aplicación NestJS.
@@ -20,6 +21,7 @@ import { AppointmentsModule } from './appointments/appointments.module';
       synchronize: process.env.NODE_ENV !== 'production',
     }),
     AppointmentsModule,
+    PaymentsModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }
