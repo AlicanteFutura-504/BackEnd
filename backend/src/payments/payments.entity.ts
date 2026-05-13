@@ -28,6 +28,10 @@ export class Payment {
   @PrimaryGeneratedColumn()
   id: number;
 
+  /** Fecha en la que se realizó el pago. */
+  @Column({ type: 'date', nullable: true })
+  date: string;
+
   /** Estado actual del pago */
   @Column({
     type: 'text',

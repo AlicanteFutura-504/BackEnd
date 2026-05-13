@@ -8,6 +8,11 @@ import { PaymentStatus, PaymentType } from '../payments.entity';
  * La librería 'class-validator' comprobará que cada campo cumpla la condición.
  */
 export class CreatePaymentDto {
+  /** Fecha del pago (Opcional). */
+  @ApiProperty({ example: '15/04/2026', required: false })
+  @IsString()
+  date?: string;
+
   /** Estado actual del pago. */
   @ApiProperty({
     enum: PaymentStatus,
