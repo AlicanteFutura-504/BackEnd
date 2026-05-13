@@ -3,11 +3,19 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 /**
  * Enumeración que define los estados posibles en los que puede encontrarse una reserva.
  */
-export enum PaymentStatus {
-  PENDING = 'pending',     // Pendiente de confirmación o de que llegue la fecha
-  CONFIRMED = 'confirmed', // Confirmada por la empresa
-  PAID = 'paid',           // El cliente ha pagado el servicio
+export enum PaymentType {
+  CARD = 'tarjeta',     // Tarjeta
+  CASH = 'efectivo', // Efectivo
+  BIZUM = 'bizum',           // Bizum
+  TRANSFER = 'transferencia', // Transferencia
+  PENDING = 'pendiente', // Pendiente
 }
+
+export enum PaymentStatus {
+  PAID = 'pagado',           // El cliente ha pagado el servicio
+  PENDING = 'pendiente',     // Pendiente de confirmación o de que llegue la fecha
+}
+
 
 /**
  * Entidad 'Payment'.
@@ -20,30 +28,35 @@ export class Payment {
   @PrimaryGeneratedColumn()
   id: number;
 
-  /** Fecha del pago. */
-  @Column({ type: 'date' })
+  /** Fecha en la que se realizó el pago. */
+  @Column({ type: 'date', nullable: true })
   date: string;
 
-  /** Hora del pago. */
-  @Column()
-  time: string;
-
-  /** Estado actual del pago, por defecto siempre se inician en estado pendiente. */
+  /** Estado actual del pago */
   @Column({
     type: 'text',
     default: PaymentStatus.PENDING,
   })
   status: PaymentStatus;
 
-  /** Relación (almacenada como número entero) del cliente que realiza el pago. */
-  @Column()
-  customerId: number;
+  /** Tipo de pago */
+  @Column({
+    type: 'text',
+    default: PaymentType.CARD,
+  })
+  type: PaymentType;
 
-  /** Identificador de la empresa o local en el que se ejecuta el pago. */
+  /** Nombre del cliente que realiza el pago. */
   @Column()
-  businessId: number;
+  clientName: string;
 
-  /** Texto descriptivo del servicio realizado (ej: Corte de pelo). */
+  /** Nombre de la empresa o local en el que se ejecuta el pago. */
   @Column()
-  serviceName: string;
+  businessName: string;
+
+
+  /** Importe del pago. */
+  @Column()
+  amount: number;
+
 }
