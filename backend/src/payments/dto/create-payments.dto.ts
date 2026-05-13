@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsString } from 'class-validator';
-import { PaymentStatus } from '../Payments.entity';
+import { PaymentStatus } from '../payments.entity';
 
 /**
  * DTO (Data Transfer Object) para la creación de un pago.
