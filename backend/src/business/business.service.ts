@@ -40,4 +40,12 @@ export class BusinessService {
 
     return this.businessRepository.save(nuevaEmpresa);
   }
+
+  async findAll(): Promise<Business[]> {
+    return this.businessRepository.find();
+  }
+
+  async remove(id: number): Promise<void> {
+    await this.businessRepository.delete(id);
+  }
 }
