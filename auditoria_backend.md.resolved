@@ -457,11 +457,11 @@ NODE_ENV=development
 
 | ID | Severidad | Archivo principal | Estado |
 |----|-----------|-------------------|--------|
-| B-01 | 🔴 Crítica | `app.module.ts` / `main.ts` | Pendiente |
-| B-02 | 🟠 Alta | `update-appointment.dto.ts` | Pendiente |
-| B-03 | 🟢 Baja | `app.controller.ts` (código muerto) | Pendiente |
-| B-04 | 🟠 Alta | `appointments.service.ts` | Pendiente |
-| B-05 | 🟠 Alta | `appointments.service.ts` | Pendiente |
-| B-06 | 🔴 Crítica | `app.module.ts` | Pendiente |
-| B-07 | 🟠 Alta | `create-appointment.dto.ts` | Pendiente |
-| B-08 | 🟡 Media | `.env` / `.gitignore` | Pendiente |
+| B-01 | 🔴 Crítica | `app.module.ts` / `main.ts` | ✅ Resuelto |
+| B-02 | 🟠 Alta | `update-appointment.dto.ts` | ✅ Resuelto |
+| B-03 | 🟢 Baja | `app.controller.ts` (código muerto) | ✅ Resuelto |
+| B-04 | 🟠 Alta | `appointments.service.ts` | ✅ Resuelto |
+| B-05 | 🟠 Alta | `appointments.service.ts` | ✅ Resuelto |
+| B-06 | 🔴 Crítica | `app.module.ts` | ✅ Resuelto |
+| B-07 | 🟠 Alta | `create-appointment.dto.ts` | ✅ Resuelto |
+| B-08 | 🟡 Media | `.env` / `.gitignore` | ✅ Resuelto |

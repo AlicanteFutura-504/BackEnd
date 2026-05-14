@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, Matches, Min } from 'class-validator';
 import { PaymentStatus, PaymentType } from '../payments.entity';
 
 /**
@@ -8,9 +8,13 @@ import { PaymentStatus, PaymentType } from '../payments.entity';
  * La librería 'class-validator' comprobará que cada campo cumpla la condición.
  */
 export class CreatePaymentDto {
-  /** Fecha del pago (Opcional). */
-  @ApiProperty({ example: '15/04/2026', required: false })
+  /** Fecha del pago (Opcional). Formato YYYY-MM-DD para consistencia. */
+  @ApiProperty({ example: '2026-04-15', required: false })
+  @IsOptional()
   @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'date debe tener formato YYYY-MM-DD',
+  })
   date?: string;
 
   /** Estado actual del pago. */
@@ -42,5 +46,6 @@ export class CreatePaymentDto {
   /** Importe del pago. */
   @ApiProperty({ example: 28.5 })
   @IsNumber()
+  @Min(0, { message: 'El importe no puede ser negativo' })
   amount: number;
 }
