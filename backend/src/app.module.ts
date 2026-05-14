@@ -3,8 +3,6 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { PaymentsModule } from './payments/payments.module';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
 
 /**
  * Módulo raíz de la aplicación NestJS.
@@ -20,12 +18,13 @@ import { AppService } from './app.service';
       type: 'sqlite',
       database: 'data/database.sqlite',
       autoLoadEntities: true,
-      synchronize: process.env.NODE_ENV !== 'production',
+      // NUNCA activar synchronize en producción: usar migraciones
+      synchronize: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
     }),
     AppointmentsModule,
     PaymentsModule,
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  controllers: [],
+  providers: [],
 })
 export class AppModule { }

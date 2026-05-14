@@ -462,6 +462,6 @@ NODE_ENV=development
 | B-03 | 🟢 Baja | `app.controller.ts` (código muerto) | ✅ Resuelto |
 | B-04 | 🟠 Alta | `appointments.service.ts` | ✅ Resuelto |
 | B-05 | 🟠 Alta | `appointments.service.ts` | ✅ Resuelto |
-| B-06 | 🔴 Crítica | `app.module.ts` | Pendiente |
-| B-07 | 🟠 Alta | `create-appointment.dto.ts` | Pendiente |
+| B-06 | 🔴 Crítica | `app.module.ts` | ✅ Resuelto |
+| B-07 | 🟠 Alta | `create-appointment.dto.ts` | ✅ Resuelto |
 | B-08 | 🟡 Media | `.env` / `.gitignore` | ✅ Resuelto |
