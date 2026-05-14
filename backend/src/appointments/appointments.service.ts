@@ -96,7 +96,14 @@ export class AppointmentsService {
     const finalBusinessId =
       updateAppointmentDto.businessId ?? appointment.businessId;
 
-    // Verificar conflicto solo si cambia fecha, hora o establecimiento
+    // 1. Validación: Evitar cambiar la reserva a una fecha pasada
+    if (finalDate < this.getLocalToday()) {
+      throw new BadRequestException(
+        'No se pueden realizar reservas en fechas pasadas.',
+      );
+    }
+
+    // 2. Validación: Verificar conflicto solo si cambia fecha, hora o establecimiento
     const hasScheduleChange =
       finalDate !== appointment.date ||
       finalTime !== appointment.time ||

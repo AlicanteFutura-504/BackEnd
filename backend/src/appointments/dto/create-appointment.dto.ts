@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsString, Matches } from 'class-validator';
 import { AppointmentStatus } from '../appointment.entity';
 
 /**
@@ -11,11 +11,17 @@ export class CreateAppointmentDto {
   /** Debe ser texto obligatoriamente. Ejemplo: '2026-04-20' */
   @ApiProperty({ example: '2026-04-20' })
   @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'date debe tener formato YYYY-MM-DD',
+  })
   date: string;
 
   /** Formato de texto para la hora. Ejemplo: '10:30' */
   @ApiProperty({ example: '10:30' })
   @IsString()
+  @Matches(/^\d{2}:\d{2}$/, {
+    message: 'time debe tener formato HH:mm',
+  })
   time: string;
 
   /** Solo se permite uno de los textos válidos de AppointmentStatus. */
