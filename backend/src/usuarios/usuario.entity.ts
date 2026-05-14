@@ -1,26 +1,56 @@
-import { Column, Entity, PrimaryGeneratedColumn, OneToMany } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn, OneToMany, OneToOne } from 'typeorm';
 import { Business } from '../business/business.entity';
 
 /**
+ * Roles de usuario en el sistema.
+ */
+export enum UserRole {
+  ADMIN = 'admin',      // Jefe / Empresario
+  BUSINESS = 'business', // Empresa (creada por el admin)
+}
+
+/**
  * Entidad 'Usuario'.
- * Esta clase representa la tabla 'usuarios' dentro de la base de datos SQLite.
- * Almacena la información de los usuarios para el inicio de sesión.
+ * Almacena la información de acceso y el rol del usuario.
  */
 @Entity('usuarios')
 export class Usuario {
-  /** Clave primaria autoincremental de la base de datos. */
+  /** Clave primaria autoincremental. */
   @PrimaryGeneratedColumn()
   id: number;
 
-  /** Nombre del usuario. */
-  @Column()
-  nombre: string;
+  /** Nombre de usuario para login. */
+  @Column({ unique: true })
+  username: string;
 
-  /** Contraseña del usuario. */
-  @Column()
+  /** Nombre completo de la persona física. */
+  @Column({ nullable: true })
+  nombreCompleto: string;
+
+  /** DNI/NIE único del usuario. */
+  @Column({ unique: true, nullable: true })
+  dni: string;
+
+  /** Correo electrónico único. */
+  @Column({ unique: true })
+  email: string;
+
+  /** Contraseña almacenada en formato hash (bcrypt). */
+  @Column({ select: false }) // Por seguridad, no se devuelve en consultas por defecto
   contrasena: string;
 
-  /** Empresas asociadas a este usuario (Relación 1 a muchos). */
+  /** Rol asignado al usuario. */
+  @Column({
+    type: 'text',
+    default: UserRole.BUSINESS,
+  })
+  role: UserRole;
+
+  /** Empresas asociadas (si el rol es ADMIN). */
   @OneToMany(() => Business, (business) => business.usuario)
   empresas: Business[];
+
+  /** Perfil de empresa asociado (si el rol es BUSINESS). */
+  @OneToOne(() => Business, (business) => business.businessUser)
+  businessProfile: Business;
 }

@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_GUARD } from '@nestjs/core';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { PaymentsModule } from './payments/payments.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { BusinessModule } from './business/business.module';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { CustomersModule } from './customers/customers.module';
+import { AuthModule } from './auth/auth.module';
+import { JwtAuthGuard } from './auth/jwt-auth.guard';
 
 /**
  * Módulo raíz de la aplicación NestJS.
@@ -29,8 +31,15 @@ import { AppService } from './app.service';
     PaymentsModule,
     UsuariosModule,
     BusinessModule,
+    CustomersModule,
+    AuthModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
+  ],
 })
 export class AppModule { }

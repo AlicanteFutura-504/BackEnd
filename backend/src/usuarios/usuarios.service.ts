@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Usuario } from './usuario.entity';
+import { Usuario, UserRole } from './usuario.entity';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsuariosService {
@@ -11,33 +12,45 @@ export class UsuariosService {
   ) {}
 
   /**
-   * Crea y guarda un nuevo usuario en la base de datos.
-   * @param nombre Nombre del usuario.
-   * @param contrasena Contraseña del usuario.
-   * @returns El usuario creado.
+   * Crea un nuevo usuario con la contraseña encriptada.
    */
-  async crearUsuario(nombre: string, contrasena: string): Promise<Usuario> {
-    const nuevoUsuario = this.usuariosRepository.create({
-      nombre,
-      contrasena,
+  async crearUsuario(
+    username: string,
+    email: string,
+    contrasena: string,
+    role: UserRole = UserRole.BUSINESS,
+    nombreCompleto?: string,
+    dni?: string,
+  ): Promise<Usuario> {
+    const existing = await this.usuariosRepository.findOne({
+      where: [{ username }, { email }, { dni: dni || 'N/A' }],
     });
+
+    if (existing) {
+      throw new ConflictException('El usuario, email o DNI ya existe en el sistema');
+    }
+
+    const hashedContrasena = await bcrypt.hash(contrasena, 10);
+
+    const nuevoUsuario = this.usuariosRepository.create({
+      username,
+      email,
+      contrasena: hashedContrasena,
+      role,
+      nombreCompleto,
+      dni,
+    });
+
     return this.usuariosRepository.save(nuevoUsuario);
   }
 
   /**
-   * Valida un usuario verificando si coincide con 'root' o si existe en la base de datos.
+   * Busca un usuario por su nombre de usuario o email para validación de login.
    */
-  async validarUsuario(nombre: string, contrasena: string): Promise<Usuario | null> {
-    if (nombre === 'root' && contrasena === 'root') {
-      const rootUser = new Usuario();
-      rootUser.id = 0;
-      rootUser.nombre = 'root';
-      rootUser.contrasena = 'root';
-      return rootUser;
-    }
-
+  async findByIdentifier(identifier: string): Promise<Usuario | null> {
     return this.usuariosRepository.findOne({
-      where: { nombre, contrasena },
+      where: [{ username: identifier }, { email: identifier }],
+      select: ['id', 'username', 'email', 'contrasena', 'role'], // Necesitamos contrasena para compare
     });
   }
 }
