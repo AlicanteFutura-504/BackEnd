@@ -26,17 +26,17 @@ export class UsuariosController {
     );
   }
 
-  @Patch(':id')
-  @ApiOperation({ summary: 'Actualizar datos de un usuario' })
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUsuarioDto) {
-    return this.usuariosService.update(id, dto);
-  }
-
   @Patch('me/update')
   @ApiOperation({ summary: 'Actualizar mis propios datos' })
   async updateMe(@Req() req: any, @Body() dto: UpdateUsuarioDto) {
     // El ID viene del token decodificado en JwtStrategy
     const userId = req.user.userId;
     return this.usuariosService.update(userId, dto);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Actualizar datos de un usuario' })
+  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUsuarioDto) {
+    return this.usuariosService.update(id, dto);
   }
 }
