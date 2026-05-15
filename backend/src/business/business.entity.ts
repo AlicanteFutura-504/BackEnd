@@ -1,5 +1,6 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, JoinColumn } from 'typeorm';
+import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, JoinColumn, OneToMany } from 'typeorm';
 import { Usuario } from '../usuarios/usuario.entity';
+import { Appointment } from '../appointments/appointment.entity';
 
 /**
  * Entidad 'Business'.
@@ -16,16 +17,33 @@ export class Business {
   @Column()
   nombre: string;
 
-  /** Contraseña para el inicio de sesión de los empleados en la empresa. */
-  @Column()
-  contrasena: string;
+  /** Ubicación física o dirección de la empresa. */
+  @Column({ nullable: true })
+  direccion: string;
 
-  /** ID del usuario propietario de la empresa. */
+  /** Teléfono de contacto de la empresa. */
+  @Column({ nullable: true })
+  telefono: string;
+
+  /** ID del usuario propietario de la empresa (Jefe/Admin). */
   @Column()
   usuarioId: number;
 
-  /** Relación ManyToOne con la entidad Usuario (1 Usuario tiene muchas empresas). */
+  /** Relación con el Jefe (Admin) que posee esta empresa. */
   @ManyToOne(() => Usuario, (usuario) => usuario.empresas, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'usuarioId' })
   usuario: Usuario;
+
+  /** ID de la cuenta de usuario propia de la empresa (para que el local pueda loguearse). */
+  @Column({ unique: true, nullable: true })
+  businessUserId: number;
+
+  /** Cuenta de usuario asociada exclusivamente a este local/empresa. */
+  @OneToOne(() => Usuario, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'businessUserId' })
+  businessUser: Usuario;
+
+  /** Lista de reservas asociadas a esta empresa. */
+  @OneToMany(() => Appointment, (appointment) => appointment.business)
+  appointments: Appointment[];
 }
