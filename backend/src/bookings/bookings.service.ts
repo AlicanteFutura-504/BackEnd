@@ -22,4 +22,20 @@ export class BookingsService {
     const booking = this.bookingsRepository.create(data);
     return this.bookingsRepository.save(booking);
   }
+
+  async update(id: number, data: Partial<BookingEntity>): Promise<BookingEntity> {
+    const booking = await this.bookingsRepository.findOne({ where: { id } });
+    if (!booking) {
+      throw new NotFoundException(`Booking con ID ${id} no encontrada`);
+    }
+    Object.assign(booking, data);
+    return this.bookingsRepository.save(booking);
+  }
+
+  async remove(id: number): Promise<void> {
+    const result = await this.bookingsRepository.delete(id);
+    if (result.affected === 0) {
+      throw new NotFoundException(`Booking con ID ${id} no encontrada`);
+    }
+  }
 }
