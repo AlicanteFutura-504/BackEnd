@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BookingEntity } from './booking.entity';
+import { UserRole } from '../usuarios/usuario.entity';
 
 @Injectable()
 export class BookingsService {
@@ -10,8 +11,17 @@ export class BookingsService {
     private readonly bookingsRepository: Repository<BookingEntity>,
   ) {}
 
-  async findAll(): Promise<BookingEntity[]> {
-    return this.bookingsRepository.find();
+  async findAll(user: any): Promise<BookingEntity[]> {
+    const query = this.bookingsRepository.createQueryBuilder('booking')
+      .innerJoin('business', 'business', 'business.id = booking.businessId');
+
+    if (user.role === UserRole.ADMIN) {
+      query.andWhere('business.usuarioId = :userId', { userId: user.userId });
+    } else if (user.role === UserRole.BUSINESS) {
+      query.andWhere('business.businessUserId = :userId', { userId: user.userId });
+    }
+
+    return await query.getMany();
   }
 
   async findByBusiness(businessId: number): Promise<BookingEntity[]> {

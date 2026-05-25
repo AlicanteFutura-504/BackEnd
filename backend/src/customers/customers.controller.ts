@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -11,8 +11,8 @@ export class CustomersController {
 
   @Get()
   @ApiOperation({ summary: 'Obtener todos los clientes' })
-  findAll() {
-    return this.customersService.findAll();
+  findAll(@Req() req: any) {
+    return this.customersService.findAll(req.user);
   }
 
   @Get(':id')

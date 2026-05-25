@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -32,8 +33,8 @@ export class PaymentsController {
    */
   @Get()
   @ApiOkResponse({ description: 'Listado de pagos' })
-  findAll() {
-    return this.paymentsService.findAll();
+  findAll(@Req() req: any) {
+    return this.paymentsService.findAll(req.user);
   }
 
   /**

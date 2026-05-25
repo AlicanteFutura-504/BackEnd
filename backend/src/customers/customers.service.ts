@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Customer } from './customer.entity';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { UserRole } from '../usuarios/usuario.entity';
 
 @Injectable()
 export class CustomersService {
@@ -12,8 +13,18 @@ export class CustomersService {
     private readonly customerRepository: Repository<Customer>,
   ) {}
 
-  async findAll() {
-    return await this.customerRepository.find();
+  async findAll(user: any) {
+    const query = this.customerRepository.createQueryBuilder('customer')
+      .innerJoin('customer.appointments', 'appointment')
+      .innerJoin('appointment.business', 'business');
+
+    if (user.role === UserRole.ADMIN) {
+      query.andWhere('business.usuarioId = :userId', { userId: user.userId });
+    } else if (user.role === UserRole.BUSINESS) {
+      query.andWhere('business.businessUserId = :userId', { userId: user.userId });
+    }
+
+    return await query.getMany();
   }
 
   async findOne(id: number) {

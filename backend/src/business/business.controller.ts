@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Delete, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, Delete, Param, Patch, Req } from '@nestjs/common';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
@@ -13,8 +13,8 @@ export class BusinessController {
   }
 
   @Get()
-  async findAll() {
-    return this.businessService.findAll();
+  async findAll(@Req() req: any) {
+    return this.businessService.findAll(req.user);
   }
 
   @Get(':id')

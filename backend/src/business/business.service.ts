@@ -42,8 +42,13 @@ export class BusinessService {
     return this.businessRepository.save(nuevaEmpresa);
   }
 
-  async findAll(): Promise<Business[]> {
-    return this.businessRepository.find();
+  async findAll(user: any): Promise<Business[]> {
+    if (user.role === UserRole.ADMIN) {
+      return this.businessRepository.find({ where: { usuarioId: user.userId } });
+    } else if (user.role === UserRole.BUSINESS) {
+      return this.businessRepository.find({ where: { businessUserId: user.userId } });
+    }
+    return [];
   }
 
   async findOne(id: number): Promise<Business> {

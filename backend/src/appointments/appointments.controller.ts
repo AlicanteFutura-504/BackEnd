@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -32,8 +33,8 @@ export class AppointmentsController {
    */
   @Get()
   @ApiOkResponse({ description: 'Listado de reservas' })
-  findAll() {
-    return this.appointmentsService.findAll();
+  findAll(@Req() req: any) {
+    return this.appointmentsService.findAll(req.user);
   }
 
   /**

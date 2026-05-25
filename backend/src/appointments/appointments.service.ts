@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Appointment } from './appointment.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
+import { UserRole } from '../usuarios/usuario.entity';
 
 /**
  * Servicio encargado de gestionar la lógica de negocio de las reservas.
@@ -21,10 +22,21 @@ export class AppointmentsService {
    * Las devuelve ordenadas por fecha y hora de forma ascendente.
    * @returns Lista completa de reservas (Appointment[])
    */
-  async findAll() {
-    return await this.appointmentsRepository.find({
-      order: { date: 'ASC', time: 'ASC' },
-    });
+  async findAll(user: any) {
+    const query = this.appointmentsRepository.createQueryBuilder('appointment')
+      .leftJoinAndSelect('appointment.business', 'business')
+      .leftJoinAndSelect('appointment.customer', 'customer');
+
+    if (user.role === UserRole.ADMIN) {
+      query.andWhere('business.usuarioId = :userId', { userId: user.userId });
+    } else if (user.role === UserRole.BUSINESS) {
+      query.andWhere('business.businessUserId = :userId', { userId: user.userId });
+    }
+
+    return await query
+      .orderBy('appointment.date', 'ASC')
+      .addOrderBy('appointment.time', 'ASC')
+      .getMany();
   }
 
   /**

@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Payment } from './payments.entity';
 import { CreatePaymentDto } from './dto/create-payments.dto';
 import { UpdatePaymentDto } from './dto/update-payments.dto';
+import { UserRole } from '../usuarios/usuario.entity';
 
 /**
  * Servicio encargado de gestionar la lógica de negocio de los pagos.
@@ -20,8 +21,18 @@ export class PaymentsService {
    * Obtiene todos los pagos de la base de datos.
    * @returns Lista completa de pagos (Payment[])
    */
-  async findAll() {
-    return await this.paymentsRepository.find();
+  async findAll(user: any) {
+    const query = this.paymentsRepository.createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.business', 'business')
+      .leftJoinAndSelect('payment.customer', 'customer');
+
+    if (user.role === UserRole.ADMIN) {
+      query.andWhere('business.usuarioId = :userId', { userId: user.userId });
+    } else if (user.role === UserRole.BUSINESS) {
+      query.andWhere('business.businessUserId = :userId', { userId: user.userId });
+    }
+
+    return await query.getMany();
   }
 
   /**
