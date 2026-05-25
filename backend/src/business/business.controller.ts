@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Delete, Param, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Get, Delete, Param, Patch, Req } from '@nestjs/common';
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
@@ -13,22 +13,26 @@ export class BusinessController {
   }
 
   @Get()
-  async findAll() {
-    return this.businessService.findAll();
+  async findAll(@Req() req: any) {
+    const user = req.user;
+    return this.businessService.findAll(user.userId, user.role);
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string) {
-    return this.businessService.findOne(+id);
+  async findOne(@Param('id') id: string, @Req() req: any) {
+    const user = req.user;
+    return this.businessService.findOne(+id, user.userId, user.role);
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() updateBusinessDto: UpdateBusinessDto) {
-    return this.businessService.update(+id, updateBusinessDto);
+  async update(@Param('id') id: string, @Body() updateBusinessDto: UpdateBusinessDto, @Req() req: any) {
+    const user = req.user;
+    return this.businessService.update(+id, updateBusinessDto, user.userId, user.role);
   }
 
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    return this.businessService.remove(+id);
+  async remove(@Param('id') id: string, @Req() req: any) {
+    const user = req.user;
+    return this.businessService.remove(+id, user.userId, user.role);
   }
 }

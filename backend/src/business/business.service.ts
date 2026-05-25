@@ -42,28 +42,37 @@ export class BusinessService {
     return this.businessRepository.save(nuevaEmpresa);
   }
 
-  async findAll(): Promise<Business[]> {
-    return this.businessRepository.find();
+  async findAll(userId: number, role: UserRole): Promise<Business[]> {
+    if (role === UserRole.ADMIN) {
+      return this.businessRepository.find({ where: { usuarioId: userId } });
+    } else if (role === UserRole.BUSINESS) {
+      return this.businessRepository.find({ where: { businessUserId: userId } });
+    }
+    return [];
   }
 
-  async findOne(id: number): Promise<Business> {
-    const business = await this.businessRepository.findOne({ where: { id } });
+  async findOne(id: number, userId: number, role: UserRole): Promise<Business> {
+    const where: any = { id };
+    if (role === UserRole.ADMIN) {
+      where.usuarioId = userId;
+    } else if (role === UserRole.BUSINESS) {
+      where.businessUserId = userId;
+    }
+    const business = await this.businessRepository.findOne({ where });
     if (!business) {
-      throw new NotFoundException(`Business with ID ${id} not found`);
+      throw new NotFoundException(`Business with ID ${id} not found or access denied`);
     }
     return business;
   }
 
-  async update(id: number, updateBusinessDto: UpdateBusinessDto): Promise<Business> {
-    const business = await this.businessRepository.findOne({ where: { id } });
-    if (!business) {
-      throw new NotFoundException(`Business with ID ${id} not found`);
-    }
+  async update(id: number, updateBusinessDto: UpdateBusinessDto, userId: number, role: UserRole): Promise<Business> {
+    const business = await this.findOne(id, userId, role);
     await this.businessRepository.update(id, updateBusinessDto);
-    return this.findOne(id);
+    return this.findOne(id, userId, role);
   }
 
-  async remove(id: number): Promise<void> {
+  async remove(id: number, userId: number, role: UserRole): Promise<void> {
+    const business = await this.findOne(id, userId, role);
     await this.businessRepository.delete(id);
   }
 }

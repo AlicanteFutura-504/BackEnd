@@ -18,6 +18,10 @@ export class BookingsService {
     return this.bookingsRepository.find({ where: { businessId } });
   }
 
+  async findByCustomer(customerId: number): Promise<BookingEntity[]> {
+    return this.bookingsRepository.find({ where: { customerId } });
+  }
+
   async create(data: Partial<BookingEntity>): Promise<BookingEntity> {
     const booking = this.bookingsRepository.create(data);
     return this.bookingsRepository.save(booking);

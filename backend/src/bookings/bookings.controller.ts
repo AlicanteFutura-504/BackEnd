@@ -16,6 +16,11 @@ export class BookingsController {
     return this.bookingsService.findByBusiness(+businessId);
   }
 
+  @Get('customer/:customerId')
+  findByCustomer(@Param('customerId') customerId: string) {
+    return this.bookingsService.findByCustomer(+customerId);
+  }
+
   @Post()
   create(@Body() createBookingDto: Partial<BookingEntity>) {
     return this.bookingsService.create(createBookingDto);
