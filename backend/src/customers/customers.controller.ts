@@ -21,6 +21,12 @@ export class CustomersController {
     return this.customersService.findAllByBusiness(businessId);
   }
 
+  @Get('by-email/:email')
+  @ApiOperation({ summary: 'Buscar cliente por email (devuelve null si no existe)' })
+  findByEmail(@Param('email') email: string) {
+    return this.customersService.findByEmail(email);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Obtener un cliente por ID' })
   findOne(@Param('id', ParseIntPipe) id: number) {

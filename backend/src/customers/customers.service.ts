@@ -24,6 +24,12 @@ export class CustomersService {
     });
   }
 
+  async findByEmail(email: string): Promise<Customer | null> {
+    return await this.customerRepository.findOne({
+      where: { email },
+    });
+  }
+
   async findOne(id: number) {
     const customer = await this.customerRepository.findOneBy({ id });
     if (!customer) {
