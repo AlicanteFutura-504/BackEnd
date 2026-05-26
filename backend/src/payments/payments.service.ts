@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { Payment } from './payments.entity';
 import { CreatePaymentDto } from './dto/create-payments.dto';
 import { UpdatePaymentDto } from './dto/update-payments.dto';
-import { CustomersService } from '../customers/customers.service';
 
 /**
  * Servicio encargado de gestionar la lógica de negocio de los pagos.
@@ -15,7 +14,6 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentsRepository: Repository<Payment>,
-    private readonly customersService: CustomersService,
   ) { }
 
   /**
@@ -69,17 +67,7 @@ export class PaymentsService {
       updatePaymentDto,
     );
 
-    const savedPayment = await this.paymentsRepository.save(updatedPayment);
-
-    // Sincronizar el nombre con la tabla de customers si se proporcionó uno nuevo
-    if (updatePaymentDto.clientName && savedPayment.customerId) {
-      const parts = updatePaymentDto.clientName.trim().split(/\s+/);
-      const name = parts[0];
-      const surname = parts.slice(1).join(' ') || '';
-      await this.customersService.update(savedPayment.customerId, { name, surname });
-    }
-
-    return savedPayment;
+    return await this.paymentsRepository.save(updatedPayment);
   }
 
   /**
@@ -95,5 +83,18 @@ export class PaymentsService {
     await this.paymentsRepository.remove(payment);
 
     return { message: `Pago ${id} eliminado correctamente` };
+  }
+
+  /**
+   * Actualiza el nombre del cliente en todos sus pagos.
+   * Útil para cuando se modifica el perfil global del cliente.
+   * @param customerId ID del cliente
+   * @param clientName Nuevo nombre completo a asignar
+   */
+  async updateClientNameForCustomer(customerId: number, clientName: string) {
+    await this.paymentsRepository.update(
+      { customerId },
+      { clientName }
+    );
   }
 }
