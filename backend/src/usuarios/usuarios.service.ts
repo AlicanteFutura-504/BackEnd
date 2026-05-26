@@ -88,6 +88,11 @@ export class UsuariosService implements OnModuleInit {
       throw new ConflictException('Usuario no encontrado');
     }
 
+    // Convert empty string DNI to null to prevent UNIQUE constraint errors
+    if (dto.dni === '') {
+      dto.dni = null as any;
+    }
+
     // Si se intenta cambiar username, email o dni, verificar que no existan ya
     if (dto.username || dto.email || dto.dni) {
       const conflictCheck = await this.usuariosRepository.findOne({
