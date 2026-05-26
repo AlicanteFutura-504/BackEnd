@@ -27,4 +27,9 @@ export class UpdateUsuarioDto {
   @IsString()
   @MinLength(6)
   contrasena?: string;
+
+  @ApiPropertyOptional({ example: '/uploads/avatar.png', description: 'Ruta de foto de perfil' })
+  @IsOptional()
+  @IsString()
+  profilePicture?: string;
 }

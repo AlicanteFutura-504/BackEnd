@@ -39,6 +39,10 @@ export class Usuario {
   @Column({ select: false }) // Por seguridad, no se devuelve en consultas por defecto
   contrasena: string;
 
+  /** URL de la foto de perfil del usuario. */
+  @Column({ nullable: true })
+  profilePicture: string;
+
   /** Rol asignado al usuario. */
   @Column({
     type: 'text',

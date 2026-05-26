@@ -51,7 +51,7 @@ export class UsuariosService {
   async findByIdentifier(identifier: string): Promise<Usuario | null> {
     return this.usuariosRepository.findOne({
       where: [{ username: identifier }, { email: identifier }],
-      select: ['id', 'username', 'email', 'contrasena', 'role', 'nombreCompleto', 'dni'], // Añadimos campos necesarios
+      select: ['id', 'username', 'email', 'contrasena', 'role', 'nombreCompleto', 'dni', 'profilePicture'], // Añadimos campos necesarios
     });
   }
 
