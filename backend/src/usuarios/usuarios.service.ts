@@ -1,4 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import { Injectable, ConflictException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Usuario, UserRole } from './usuario.entity';
@@ -6,11 +6,35 @@ import * as bcrypt from 'bcrypt';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 
 @Injectable()
-export class UsuariosService {
+export class UsuariosService implements OnModuleInit {
+  private readonly logger = new Logger(UsuariosService.name);
+
   constructor(
     @InjectRepository(Usuario)
     private readonly usuariosRepository: Repository<Usuario>,
   ) {}
+
+  async onModuleInit() {
+    await this.seedRootUser();
+  }
+
+  private async seedRootUser() {
+    const rootUser = await this.usuariosRepository.findOne({ where: { username: 'root' } });
+    if (!rootUser) {
+      const hashedContrasena = await bcrypt.hash('root', 10);
+      const nuevoRoot = this.usuariosRepository.create({
+        username: 'root',
+        email: 'root@bookflow.com',
+        contrasena: hashedContrasena,
+        role: UserRole.ADMIN,
+        nombreCompleto: 'Super Admin (Developer)',
+      });
+      await this.usuariosRepository.save(nuevoRoot);
+      this.logger.log('Root user created successfully');
+    } else {
+      this.logger.log('Root user already exists');
+    }
+  }
 
   /**
    * Crea un nuevo usuario con la contraseña encriptada.
