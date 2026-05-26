@@ -3,6 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import basicAuth from 'express-basic-auth';
 import { AppModule } from './app.module';
 
 /**
@@ -32,6 +33,16 @@ async function bootstrap() {
   );
 
   // Configuración de la documentación interactiva Swagger
+  app.use(
+    '/api',
+    basicAuth({
+      challenge: true,
+      users: {
+        root: 'root',
+      },
+    }),
+  );
+
   const config = new DocumentBuilder()
     .setTitle('Booking Management API')
     .setDescription('API MVP para gestión de reservas de comercios')
