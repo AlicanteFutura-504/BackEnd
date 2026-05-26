@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Payment } from './payments.entity';
 import { CreatePaymentDto } from './dto/create-payments.dto';
 import { UpdatePaymentDto } from './dto/update-payments.dto';
+import { CustomersService } from '../customers/customers.service';
 
 /**
  * Servicio encargado de gestionar la lógica de negocio de los pagos.
@@ -14,6 +15,7 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentsRepository: Repository<Payment>,
+    private readonly customersService: CustomersService,
   ) { }
 
   /**
@@ -67,7 +69,17 @@ export class PaymentsService {
       updatePaymentDto,
     );
 
-    return await this.paymentsRepository.save(updatedPayment);
+    const savedPayment = await this.paymentsRepository.save(updatedPayment);
+
+    // Sincronizar el nombre con la tabla de customers si se proporcionó uno nuevo
+    if (updatePaymentDto.clientName && savedPayment.customerId) {
+      const parts = updatePaymentDto.clientName.trim().split(/\s+/);
+      const name = parts[0];
+      const surname = parts.slice(1).join(' ') || '';
+      await this.customersService.update(savedPayment.customerId, { name, surname });
+    }
+
+    return savedPayment;
   }
 
   /**
