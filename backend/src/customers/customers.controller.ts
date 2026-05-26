@@ -15,6 +15,12 @@ export class CustomersController {
     return this.customersService.findAll();
   }
 
+  @Get('business/:businessId')
+  @ApiOperation({ summary: 'Obtener clientes de un negocio específico' })
+  findAllByBusiness(@Param('businessId', ParseIntPipe) businessId: number) {
+    return this.customersService.findAllByBusiness(businessId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Obtener un cliente por ID' })
   findOne(@Param('id', ParseIntPipe) id: number) {

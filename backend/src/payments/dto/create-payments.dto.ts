@@ -48,4 +48,14 @@ export class CreatePaymentDto {
   @IsNumber()
   @Min(0, { message: 'El importe no puede ser negativo' })
   amount: number;
+
+  @ApiProperty({ example: 1, required: false })
+  @IsOptional()
+  @IsNumber()
+  customerId?: number;
+
+  @ApiProperty({ example: 1, required: false })
+  @IsOptional()
+  @IsNumber()
+  businessId?: number;
 }

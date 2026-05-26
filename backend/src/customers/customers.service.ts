@@ -4,16 +4,24 @@ import { Repository } from 'typeorm';
 import { Customer } from './customer.entity';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
+import { PaymentsService } from '../payments/payments.service';
 
 @Injectable()
 export class CustomersService {
   constructor(
     @InjectRepository(Customer)
     private readonly customerRepository: Repository<Customer>,
+    private readonly paymentsService: PaymentsService,
   ) {}
 
   async findAll() {
     return await this.customerRepository.find();
+  }
+
+  async findAllByBusiness(businessId: number) {
+    return await this.customerRepository.find({
+      where: { businessId },
+    });
   }
 
   async findOne(id: number) {
@@ -36,7 +44,15 @@ export class CustomersService {
   async update(id: number, updateCustomerDto: UpdateCustomerDto) {
     const customer = await this.findOne(id);
     const updated = this.customerRepository.merge(customer, updateCustomerDto);
-    return await this.customerRepository.save(updated);
+    const savedCustomer = await this.customerRepository.save(updated);
+
+    // Si se ha actualizado el nombre o el apellido, propagamos el cambio a la tabla de pagos
+    if (updateCustomerDto.name !== undefined || updateCustomerDto.surname !== undefined) {
+      const fullName = `${savedCustomer.name} ${savedCustomer.surname || ''}`.trim();
+      await this.paymentsService.updateClientNameForCustomer(savedCustomer.id, fullName);
+    }
+
+    return savedCustomer;
   }
 
   async remove(id: number) {

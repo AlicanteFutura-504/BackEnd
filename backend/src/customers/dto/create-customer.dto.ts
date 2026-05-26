@@ -19,4 +19,8 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiProperty({ example: 1, required: false })
+  @IsOptional()
+  businessId?: number;
 }
