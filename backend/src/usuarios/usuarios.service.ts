@@ -24,7 +24,7 @@ export class UsuariosService implements OnModuleInit {
       const hashedContrasena = await bcrypt.hash('root', 10);
       const nuevoRoot = this.usuariosRepository.create({
         username: 'root',
-        email: 'root@bookflow.com',
+        email: 'root@yoku.com',
         contrasena: hashedContrasena,
         role: UserRole.ADMIN,
         nombreCompleto: 'Super Admin (Developer)',
