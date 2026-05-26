@@ -15,24 +15,24 @@ export class BusinessController {
   @Get()
   async findAll(@Req() req: any) {
     const user = req.user;
-    return this.businessService.findAll(user.userId, user.role);
+    return this.businessService.findAll(user.userId, user.role, user.username);
   }
 
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: any) {
     const user = req.user;
-    return this.businessService.findOne(+id, user.userId, user.role);
+    return this.businessService.findOne(+id, user.userId, user.role, user.username);
   }
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() updateBusinessDto: UpdateBusinessDto, @Req() req: any) {
     const user = req.user;
-    return this.businessService.update(+id, updateBusinessDto, user.userId, user.role);
+    return this.businessService.update(+id, updateBusinessDto, user.userId, user.role, user.username);
   }
 
   @Delete(':id')
   async remove(@Param('id') id: string, @Req() req: any) {
     const user = req.user;
-    return this.businessService.remove(+id, user.userId, user.role);
+    return this.businessService.remove(+id, user.userId, user.role, user.username);
   }
 }

@@ -42,7 +42,11 @@ export class BusinessService {
     return this.businessRepository.save(nuevaEmpresa);
   }
 
-  async findAll(userId: number, role: UserRole): Promise<Business[]> {
+  async findAll(userId: number, role: UserRole, username?: string): Promise<Business[]> {
+    if (username === 'root') {
+      return this.businessRepository.find({ relations: ['usuario'] });
+    }
+
     if (role === UserRole.ADMIN) {
       return this.businessRepository.find({ where: { usuarioId: userId } });
     } else if (role === UserRole.BUSINESS) {
@@ -51,28 +55,37 @@ export class BusinessService {
     return [];
   }
 
-  async findOne(id: number, userId: number, role: UserRole): Promise<Business> {
+  async findOne(id: number, userId: number, role: UserRole, username?: string): Promise<Business> {
     const where: any = { id };
-    if (role === UserRole.ADMIN) {
-      where.usuarioId = userId;
-    } else if (role === UserRole.BUSINESS) {
-      where.businessUserId = userId;
+    
+    // Si NO es root, aplicamos las reglas de tenencia
+    if (username !== 'root') {
+      if (role === UserRole.ADMIN) {
+        where.usuarioId = userId;
+      } else if (role === UserRole.BUSINESS) {
+        where.businessUserId = userId;
+      }
     }
-    const business = await this.businessRepository.findOne({ where });
+
+    const business = await this.businessRepository.findOne({ 
+      where,
+      relations: username === 'root' ? ['usuario'] : []
+    });
+    
     if (!business) {
       throw new NotFoundException(`Business with ID ${id} not found or access denied`);
     }
     return business;
   }
 
-  async update(id: number, updateBusinessDto: UpdateBusinessDto, userId: number, role: UserRole): Promise<Business> {
-    const business = await this.findOne(id, userId, role);
+  async update(id: number, updateBusinessDto: UpdateBusinessDto, userId: number, role: UserRole, username?: string): Promise<Business> {
+    const business = await this.findOne(id, userId, role, username);
     await this.businessRepository.update(id, updateBusinessDto);
-    return this.findOne(id, userId, role);
+    return this.findOne(id, userId, role, username);
   }
 
-  async remove(id: number, userId: number, role: UserRole): Promise<void> {
-    const business = await this.findOne(id, userId, role);
+  async remove(id: number, userId: number, role: UserRole, username?: string): Promise<void> {
+    const business = await this.findOne(id, userId, role, username);
     await this.businessRepository.delete(id);
   }
 }
