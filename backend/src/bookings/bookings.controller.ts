@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, BadRequestException } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { BookingEntity } from './booking.entity';
 
@@ -9,6 +9,19 @@ export class BookingsController {
   @Get()
   findAll() {
     return this.bookingsService.findAll();
+  }
+
+  // IMPORTANTE: declarar antes de rutas con :param
+  @Get('calendar')
+  findByDateRange(
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!from || !to || !dateRegex.test(from) || !dateRegex.test(to)) {
+      throw new BadRequestException('Los parámetros from y to son obligatorios con formato YYYY-MM-DD');
+    }
+    return this.bookingsService.findByDateRange(from, to);
   }
 
   @Get('business/:businessId')

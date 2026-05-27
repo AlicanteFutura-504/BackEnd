@@ -22,6 +22,16 @@ export class BookingsService {
     return this.bookingsRepository.find({ where: { customerId } });
   }
 
+  async findByDateRange(from: string, to: string): Promise<BookingEntity[]> {
+    return this.bookingsRepository
+      .createQueryBuilder('booking')
+      .where('booking.date >= :from', { from })
+      .andWhere('booking.date <= :to', { to })
+      .orderBy('booking.date', 'ASC')
+      .addOrderBy('booking.time', 'ASC')
+      .getMany();
+  }
+
   async create(data: Partial<BookingEntity>): Promise<BookingEntity> {
     const booking = this.bookingsRepository.create(data);
     return this.bookingsRepository.save(booking);
