@@ -2,7 +2,10 @@ import { Controller, Post, Body, Get, Delete, Param, Patch, Req } from '@nestjs/
 import { BusinessService } from './business.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('business')
+@ApiBearerAuth()
 @Controller('business')
 export class BusinessController {
   constructor(private readonly businessService: BusinessService) {}

@@ -47,6 +47,7 @@ async function bootstrap() {
     .setTitle('Booking Management API')
     .setDescription('API MVP para gestión de reservas de comercios')
     .setVersion('1.0')
+    .addBearerAuth()
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

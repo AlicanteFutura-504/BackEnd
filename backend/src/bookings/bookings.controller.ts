@@ -1,7 +1,10 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, BadRequestException, Req } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { BookingEntity } from './booking.entity';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiTags('bookings')
+@ApiBearerAuth()
 @Controller('bookings')
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}

@@ -14,6 +14,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiTags,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { AppointmentsService } from './appointments.service';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
@@ -24,6 +25,7 @@ import { UpdateAppointmentDto } from './dto/update-appointment.dto';
  * Escucha las peticiones HTTP (GET, POST, PATCH, DELETE) que lleguen a la ruta '/appointments'.
  */
 @ApiTags('appointments')
+@ApiBearerAuth()
 @Controller('appointments')
 export class AppointmentsController {
   constructor(private readonly appointmentsService: AppointmentsService) {}
