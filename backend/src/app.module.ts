@@ -21,12 +21,19 @@ import { BookingsModule } from './bookings/bookings.module';
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    TypeOrmModule.forRoot({
-      type: 'sqlite',
-      database: 'data/database.sqlite',
-      autoLoadEntities: true,
-      // NUNCA activar synchronize en producción: usar migraciones
-      synchronize: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
+    TypeOrmModule.forRootAsync({
+      useFactory: () => {
+        const isPostgres = !!process.env.DATABASE_URL;
+        return {
+          type: isPostgres ? 'postgres' : 'sqlite',
+          ...(isPostgres 
+            ? { url: process.env.DATABASE_URL }
+            : { database: 'data/database.sqlite' }),
+          autoLoadEntities: true,
+          // NUNCA activar synchronize en producción: usar migraciones
+          synchronize: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
+        };
+      },
     }),
     AppointmentsModule,
     PaymentsModule,
