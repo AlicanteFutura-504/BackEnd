@@ -26,7 +26,7 @@ import { BookingsModule } from './bookings/bookings.module';
       database: 'data/database.sqlite',
       autoLoadEntities: true,
       // NUNCA activar synchronize en producción: usar migraciones
-      synchronize: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
+      synchronize: false,
     }),
     AppointmentsModule,
     PaymentsModule,
