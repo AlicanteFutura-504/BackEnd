@@ -148,6 +148,25 @@ export class AppointmentsService {
   }
 
   /**
+   * Obtiene todas las reservas dentro de un rango de fechas (inclusive).
+   * Las devuelve ordenadas por fecha y hora ascendente.
+   * Usado principalmente por la vista de calendario del frontend.
+   *
+   * @param from Fecha inicial en formato YYYY-MM-DD
+   * @param to   Fecha final en formato YYYY-MM-DD
+   * @returns Lista de reservas en el rango indicado
+   */
+  async findByDateRange(from: string, to: string) {
+    return await this.appointmentsRepository
+      .createQueryBuilder('appointment')
+      .where('appointment.date >= :from', { from })
+      .andWhere('appointment.date <= :to', { to })
+      .orderBy('appointment.date', 'ASC')
+      .addOrderBy('appointment.time', 'ASC')
+      .getMany();
+  }
+
+  /**
    * Elimina una reserva de la base de datos de manera permanente.
    * @param id Identificador de la reserva a eliminar.
    * @throws NotFoundException Si la reserva no existe.

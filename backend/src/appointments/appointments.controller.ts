@@ -7,6 +7,8 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiCreatedResponse,
@@ -34,6 +36,25 @@ export class AppointmentsController {
   @ApiOkResponse({ description: 'Listado de reservas' })
   findAll() {
     return this.appointmentsService.findAll();
+  }
+
+  /**
+   * GET /appointments/calendar?from=YYYY-MM-DD&to=YYYY-MM-DD
+   * Devuelve las reservas en el rango de fechas indicado, usada por la vista de calendario.
+   * IMPORTANTE: esta ruta debe declararse ANTES de `:id` para que Nest no
+   * interprete "calendar" como un ID numérico.
+   */
+  @Get('calendar')
+  @ApiOkResponse({ description: 'Reservas en rango de fechas' })
+  findByDateRange(
+    @Query('from') from: string,
+    @Query('to') to: string,
+  ) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!from || !to || !dateRegex.test(from) || !dateRegex.test(to)) {
+      throw new BadRequestException('Los parámetros from y to son obligatorios con formato YYYY-MM-DD');
+    }
+    return this.appointmentsService.findByDateRange(from, to);
   }
 
   /**
