@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, BadRequestException, Req } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { BookingEntity } from './booking.entity';
 
@@ -7,8 +7,8 @@ export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Get()
-  findAll() {
-    return this.bookingsService.findAll();
+  findAll(@Req() req: any) {
+    return this.bookingsService.findAll(req.user);
   }
 
   // IMPORTANTE: declarar antes de rutas con :param
@@ -16,22 +16,23 @@ export class BookingsController {
   findByDateRange(
     @Query('from') from: string,
     @Query('to') to: string,
+    @Req() req: any,
   ) {
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!from || !to || !dateRegex.test(from) || !dateRegex.test(to)) {
       throw new BadRequestException('Los parámetros from y to son obligatorios con formato YYYY-MM-DD');
     }
-    return this.bookingsService.findByDateRange(from, to);
+    return this.bookingsService.findByDateRange(from, to, req.user);
   }
 
   @Get('business/:businessId')
-  findByBusiness(@Param('businessId') businessId: string) {
-    return this.bookingsService.findByBusiness(+businessId);
+  findByBusiness(@Param('businessId') businessId: string, @Req() req: any) {
+    return this.bookingsService.findByBusiness(+businessId, req.user);
   }
 
   @Get('customer/:customerId')
-  findByCustomer(@Param('customerId') customerId: string) {
-    return this.bookingsService.findByCustomer(+customerId);
+  findByCustomer(@Param('customerId') customerId: string, @Req() req: any) {
+    return this.bookingsService.findByCustomer(+customerId, req.user);
   }
 
   @Post()
@@ -40,12 +41,16 @@ export class BookingsController {
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateBookingDto: Partial<BookingEntity>) {
-    return this.bookingsService.update(id, updateBookingDto);
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateBookingDto: Partial<BookingEntity>,
+    @Req() req: any,
+  ) {
+    return this.bookingsService.update(id, updateBookingDto, req.user);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
-    return this.bookingsService.remove(id);
+  remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.bookingsService.remove(id, req.user);
   }
 }

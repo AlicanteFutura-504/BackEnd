@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -10,19 +10,19 @@ export class CustomersController {
   constructor(private readonly customersService: CustomersService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Obtener todos los clientes' })
-  findAll() {
-    return this.customersService.findAll();
+  @ApiOperation({ summary: 'Obtener todos los clientes accesibles' })
+  findAll(@Req() req: any) {
+    return this.customersService.findAll(req.user);
   }
 
   @Get('business/:businessId')
   @ApiOperation({ summary: 'Obtener clientes de un negocio específico' })
-  findAllByBusiness(@Param('businessId', ParseIntPipe) businessId: number) {
-    return this.customersService.findAllByBusiness(businessId);
+  findAllByBusiness(@Param('businessId', ParseIntPipe) businessId: number, @Req() req: any) {
+    return this.customersService.findAllByBusiness(businessId, req.user);
   }
 
   @Get('by-email/:email')
-  @ApiOperation({ summary: 'Buscar cliente por email (devuelve null si no existe)' })
+  @ApiOperation({ summary: 'Buscar cliente por email' })
   findByEmail(@Param('email') email: string) {
     return this.customersService.findByEmail(email);
   }

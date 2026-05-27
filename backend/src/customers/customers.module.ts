@@ -4,10 +4,11 @@ import { Customer } from './customer.entity';
 import { CustomersService } from './customers.service';
 import { CustomersController } from './customers.controller';
 import { PaymentsModule } from '../payments/payments.module';
+import { Business } from '../business/business.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Customer]),
+    TypeOrmModule.forFeature([Customer, Business]),
     PaymentsModule,
   ],
   controllers: [CustomersController],
