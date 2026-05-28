@@ -50,6 +50,7 @@ Si el usuario te pide crear o añadir un nuevo cliente, utiliza la herramienta (
 MUY IMPORTANTE: Si el usuario tiene varias empresas asociadas (míralas arriba) y no ha especificado en cuál de ellas quiere realizar la acción (reserva o crear cliente), DEBES preguntarle en qué empresa quiere registrarlo antes de usar la herramienta. Si especifica el nombre de la empresa, busca el ID correspondiente en la lista de arriba y pásalo como 'businessId' a la herramienta. Si solo tiene 1 empresa o si ya te dijo el nombre, usa esa.
 Si el usuario te pide crear o registrar un pago, utiliza la herramienta (function) 'create_payment'. Asegúrate de pedirle todos los datos necesarios: nombre del cliente, importe a pagar, fecha, método de pago (tarjeta, efectivo, bizum, transferencia, pendiente) y estado (pagado o pendiente).
 Si el usuario te pide crear una empresa o negocio, utiliza la herramienta (function) 'create_business'. Asegúrate de pedirle todos los datos necesarios: nombre del local, ubicación (direccion), teléfono de contacto, usuario de la cuenta (username), correo electrónico y contraseña.
+IMPORTANTE: Si el usuario es superadministrador (Username: root), no puede crear ni gestionar clientes, reservas o pagos. Si pide hacerlo, rechaza la solicitud amablemente indicando que no tiene permisos para ello.
 Responde siempre en español, de manera clara, concisa y usando formato Markdown si es necesario. No reveles detalles internos del código.
 
 REGLA ESTRICTA DE COMPORTAMIENTO:
@@ -168,9 +169,17 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
           response = await result.response;
         } 
         else if (call.name === 'create_customer') {
-          const { name, email, phone, businessId } = call.args as any;
-          
-          try {
+          if (user.username === 'root') {
+            result = await chat.sendMessage([{
+              functionResponse: {
+                name: 'create_customer',
+                response: { success: false, error: "Permiso denegado. El superadministrador no puede crear clientes." }
+              }
+            }]);
+          } else {
+            const { name, email, phone, businessId } = call.args as any;
+            
+            try {
             // Logica de asignación de negocio
             // Si el LLM pasó un businessId, lo usamos.
             // Si no lo pasó, pero el usuario tiene solo 1 empresa (o es empleado con un businessId fijo), lo usamos.
@@ -205,6 +214,7 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
                 response: { success: false, error: e.message || "Error desconocido al crear cliente" }
               }
             }]);
+          }
           }
           response = await result.response;
         }
@@ -246,8 +256,16 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
           response = await result.response;
         }
         else if (call.name === 'create_booking') {
-          const { customerName, customerSurname, customerEmail, customerPhone, date, time, service, businessId } = call.args as any;
-          try {
+          if (user.username === 'root') {
+            result = await chat.sendMessage([{
+              functionResponse: {
+                name: 'create_booking',
+                response: { success: false, error: "Permiso denegado. El superadministrador no puede crear reservas." }
+              }
+            }]);
+          } else {
+            const { customerName, customerSurname, customerEmail, customerPhone, date, time, service, businessId } = call.args as any;
+            try {
             let finalBusinessId = businessId;
             if (!finalBusinessId) {
                if (user?.businessId) {
@@ -292,45 +310,55 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
               }
             }]);
           }
+          }
           response = await result.response;
         }
         else if (call.name === 'create_payment') {
-          const { clientName, amount, date, type, status, businessId } = call.args as any;
-          try {
-            let finalBusinessId = businessId;
-            if (!finalBusinessId) {
-               if (user?.businessId) {
-                  finalBusinessId = user.businessId;
-               } else if (userBusinesses.length > 0) {
-                  finalBusinessId = userBusinesses[0].id;
-               }
+          if (user.username === 'root') {
+            result = await chat.sendMessage([{
+              functionResponse: {
+                name: 'create_payment',
+                response: { success: false, error: "Permiso denegado. El superadministrador no puede registrar pagos." }
+              }
+            }]);
+          } else {
+            const { clientName, amount, date, type, status, businessId } = call.args as any;
+            try {
+              let finalBusinessId = businessId;
+              if (!finalBusinessId) {
+                 if (user?.businessId) {
+                    finalBusinessId = user.businessId;
+                 } else if (userBusinesses.length > 0) {
+                    finalBusinessId = userBusinesses[0].id;
+                 }
+              }
+
+              const businessName = userBusinesses.find(b => b.id === finalBusinessId)?.nombre || 'Empresa Desconocida';
+
+              const newPayment = await this.paymentsService.create({
+                clientName,
+                amount: parseFloat(amount),
+                date,
+                type,
+                status,
+                businessName,
+                businessId: finalBusinessId
+              });
+
+              result = await chat.sendMessage([{
+                functionResponse: {
+                  name: 'create_payment',
+                  response: { success: true, payment: newPayment, message: "Pago registrado exitosamente" }
+                }
+              }]);
+            } catch (e: any) {
+              result = await chat.sendMessage([{
+                functionResponse: {
+                  name: 'create_payment',
+                  response: { success: false, error: e.message || "Error al registrar el pago" }
+                }
+              }]);
             }
-
-            const businessName = userBusinesses.find(b => b.id === finalBusinessId)?.nombre || 'Empresa Desconocida';
-
-            const newPayment = await this.paymentsService.create({
-              clientName,
-              amount: parseFloat(amount),
-              date,
-              type,
-              status,
-              businessName,
-              businessId: finalBusinessId
-            });
-
-            result = await chat.sendMessage([{
-              functionResponse: {
-                name: 'create_payment',
-                response: { success: true, payment: newPayment, message: "Pago registrado exitosamente" }
-              }
-            }]);
-          } catch (e: any) {
-            result = await chat.sendMessage([{
-              functionResponse: {
-                name: 'create_payment',
-                response: { success: false, error: e.message || "Error al registrar el pago" }
-              }
-            }]);
           }
           response = await result.response;
         }
