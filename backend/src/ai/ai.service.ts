@@ -32,7 +32,7 @@ export class AiService {
         ? userBusinesses.map(b => `- ID: ${b.id}, Nombre: ${b.nombre}`).join('\n')
         : 'Ninguna (no tiene negocios)';
 
-      const systemInstruction = `Eres el Asistente Virtual Oficial de Alicante Futura.
+      const systemInstruction = `Eres el Asistente Virtual Oficial de Yoku.
 Tu objetivo es ayudar de forma amable y profesional a los empresarios y empresas que usan nuestra plataforma.
 
 Información del usuario actual (extraída del sistema):
@@ -45,6 +45,7 @@ ${businessListString}
 Si el usuario te pregunta por sus reservas, citas o bookings, utiliza la herramienta (function) que tienes disponible para consultar la base de datos real y dale una respuesta formateada en base a lo que obtengas. Si la lista está vacía, dile que no tiene reservas.
 Si el usuario te pide crear o añadir un nuevo cliente, utiliza la herramienta (function) 'create_customer'. Pídele los datos faltantes si es necesario (se necesita nombre, email, y opcionalmente teléfono). 
 MUY IMPORTANTE: Si el usuario tiene varias empresas asociadas (míralas arriba) y no ha especificado en cuál de ellas quiere crear al cliente, DEBES preguntarle en qué empresa quiere registrarlo antes de usar la herramienta. Si especifica el nombre de la empresa, busca el ID correspondiente en la lista de arriba y pásalo como 'businessId' a la herramienta. Si solo tiene 1 empresa o si ya te dijo el nombre, usa esa.
+Si el usuario te pide crear una empresa o negocio, utiliza la herramienta (function) 'create_business'. Asegúrate de pedirle todos los datos necesarios: nombre del local, ubicación (direccion), teléfono de contacto, usuario de la cuenta (username), correo electrónico y contraseña.
 Responde siempre en español, de manera clara, concisa y usando formato Markdown si es necesario. No reveles detalles internos del código.`;
 
       // Herramienta 1: Leer Reservas
@@ -73,10 +74,28 @@ Responde siempre en español, de manera clara, concisa y usando formato Markdown
         },
       };
 
+      // Herramienta 3: Crear Empresa (Solo Admins)
+      const createBusinessDeclaration: FunctionDeclaration = {
+        name: 'create_business',
+        description: 'Crea una nueva empresa/negocio y su cuenta de usuario. Requiere nombre, direccion, telefono, username, email y contrasena. Solo puede ser ejecutada por administradores.',
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            nombre: { type: SchemaType.STRING, description: 'Nombre de la empresa o local' },
+            direccion: { type: SchemaType.STRING, description: 'Ubicación o dirección de la empresa' },
+            telefono: { type: SchemaType.STRING, description: 'Teléfono de contacto' },
+            username: { type: SchemaType.STRING, description: 'Nombre de usuario para la cuenta de la empresa' },
+            email: { type: SchemaType.STRING, description: 'Correo electrónico de la cuenta' },
+            contrasena: { type: SchemaType.STRING, description: 'Contraseña de la cuenta' },
+          },
+          required: ['nombre', 'direccion', 'telefono', 'username', 'email', 'contrasena']
+        },
+      };
+
       const model = this.genAI.getGenerativeModel({ 
         model: this.modelName,
         systemInstruction: systemInstruction,
-        tools: [{ functionDeclarations: [getBookingsDeclaration, createCustomerDeclaration] }]
+        tools: [{ functionDeclarations: [getBookingsDeclaration, createCustomerDeclaration, createBusinessDeclaration] }]
       });
 
       const history = (dto.history || []).map((msg) => ({
@@ -141,6 +160,43 @@ Responde siempre en español, de manera clara, concisa y usando formato Markdown
                 response: { success: false, error: e.message || "Error desconocido al crear cliente" }
               }
             }]);
+          }
+          response = await result.response;
+        }
+        else if (call.name === 'create_business') {
+          if (user.role !== 'ADMIN' && user.username !== 'root') {
+             result = await chat.sendMessage([{
+              functionResponse: {
+                name: 'create_business',
+                response: { success: false, error: "Permiso denegado. Solo los usuarios con rol de empresario (ADMIN) pueden crear empresas." }
+              }
+            }]);
+          } else {
+            const { nombre, direccion, telefono, username, email, contrasena } = call.args as any;
+            try {
+              const newBusiness = await this.businessService.crearEmpresa({
+                nombre,
+                direccion,
+                telefono,
+                username,
+                email,
+                contrasena,
+                usuarioId: user.userId
+              });
+              result = await chat.sendMessage([{
+                functionResponse: {
+                  name: 'create_business',
+                  response: { success: true, business: newBusiness, message: "Empresa creada exitosamente en la BBDD" }
+                }
+              }]);
+            } catch (e: any) {
+              result = await chat.sendMessage([{
+                functionResponse: {
+                  name: 'create_business',
+                  response: { success: false, error: e.message || "Error al crear la empresa" }
+                }
+              }]);
+            }
           }
           response = await result.response;
         }
