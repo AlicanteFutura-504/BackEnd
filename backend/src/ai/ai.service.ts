@@ -5,6 +5,7 @@ import { ChatRequestDto, ChatMessage } from './dto/chat-request.dto';
 import { BookingsService } from '../bookings/bookings.service';
 import { CustomersService } from '../customers/customers.service';
 import { BusinessService } from '../business/business.service';
+import { PaymentsService } from '../payments/payments.service';
 
 @Injectable()
 export class AiService {
@@ -15,7 +16,8 @@ export class AiService {
     private readonly configService: ConfigService,
     private readonly bookingsService: BookingsService,
     private readonly customersService: CustomersService,
-    private readonly businessService: BusinessService
+    private readonly businessService: BusinessService,
+    private readonly paymentsService: PaymentsService
   ) {
     const apiKey = this.configService.get<string>('GEMINI_API_KEY');
     if (!apiKey) {
@@ -43,8 +45,10 @@ Información del usuario actual (extraída del sistema):
 ${businessListString}
 
 Si el usuario te pregunta por sus reservas, citas o bookings, utiliza la herramienta (function) que tienes disponible para consultar la base de datos real y dale una respuesta formateada en base a lo que obtengas. Si la lista está vacía, dile que no tiene reservas.
+Si el usuario te pide crear o hacer una nueva reserva (booking/cita), utiliza la herramienta (function) 'create_booking'. Pídele todos los datos necesarios: nombre y apellidos del cliente, correo electrónico, teléfono, fecha (día), hora y el servicio que desea.
 Si el usuario te pide crear o añadir un nuevo cliente, utiliza la herramienta (function) 'create_customer'. Pídele los datos faltantes si es necesario (se necesita nombre, email, y opcionalmente teléfono). 
-MUY IMPORTANTE: Si el usuario tiene varias empresas asociadas (míralas arriba) y no ha especificado en cuál de ellas quiere crear al cliente, DEBES preguntarle en qué empresa quiere registrarlo antes de usar la herramienta. Si especifica el nombre de la empresa, busca el ID correspondiente en la lista de arriba y pásalo como 'businessId' a la herramienta. Si solo tiene 1 empresa o si ya te dijo el nombre, usa esa.
+MUY IMPORTANTE: Si el usuario tiene varias empresas asociadas (míralas arriba) y no ha especificado en cuál de ellas quiere realizar la acción (reserva o crear cliente), DEBES preguntarle en qué empresa quiere registrarlo antes de usar la herramienta. Si especifica el nombre de la empresa, busca el ID correspondiente en la lista de arriba y pásalo como 'businessId' a la herramienta. Si solo tiene 1 empresa o si ya te dijo el nombre, usa esa.
+Si el usuario te pide crear o registrar un pago, utiliza la herramienta (function) 'create_payment'. Asegúrate de pedirle todos los datos necesarios: nombre del cliente, importe a pagar, fecha, método de pago (tarjeta, efectivo, bizum, transferencia, pendiente) y estado (pagado o pendiente).
 Si el usuario te pide crear una empresa o negocio, utiliza la herramienta (function) 'create_business'. Asegúrate de pedirle todos los datos necesarios: nombre del local, ubicación (direccion), teléfono de contacto, usuario de la cuenta (username), correo electrónico y contraseña.
 Responde siempre en español, de manera clara, concisa y usando formato Markdown si es necesario. No reveles detalles internos del código.
 
@@ -95,10 +99,48 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
         },
       };
 
+      // Herramienta 4: Crear Reserva
+      const createBookingDeclaration: FunctionDeclaration = {
+        name: 'create_booking',
+        description: 'Crea una nueva reserva o cita. Requiere datos del cliente (nombre, apellido, email, teléfono) y de la cita (fecha, hora, servicio).',
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            customerName: { type: SchemaType.STRING, description: 'Nombre del cliente' },
+            customerSurname: { type: SchemaType.STRING, description: 'Apellido(s) del cliente' },
+            customerEmail: { type: SchemaType.STRING, description: 'Correo electrónico del cliente' },
+            customerPhone: { type: SchemaType.STRING, description: 'Teléfono del cliente' },
+            date: { type: SchemaType.STRING, description: 'Fecha de la reserva en formato YYYY-MM-DD' },
+            time: { type: SchemaType.STRING, description: 'Hora de la reserva (ej. 10:00)' },
+            service: { type: SchemaType.STRING, description: 'Servicio que desea reservar' },
+            businessId: { type: SchemaType.NUMBER, description: 'ID de la empresa' },
+          },
+          required: ['customerName', 'customerSurname', 'customerEmail', 'customerPhone', 'date', 'time', 'service']
+        }
+      };
+
+      // Herramienta 5: Crear Pago
+      const createPaymentDeclaration: FunctionDeclaration = {
+        name: 'create_payment',
+        description: 'Crea o registra un nuevo pago. Requiere nombre del cliente, importe, fecha, método de pago y estado.',
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            clientName: { type: SchemaType.STRING, description: 'Nombre completo del cliente' },
+            amount: { type: SchemaType.NUMBER, description: 'Importe o cantidad a pagar' },
+            date: { type: SchemaType.STRING, description: 'Fecha del pago en formato YYYY-MM-DD' },
+            type: { type: SchemaType.STRING, description: 'Método de pago. Valores válidos: tarjeta, efectivo, bizum, transferencia, pendiente' },
+            status: { type: SchemaType.STRING, description: 'Estado del pago. Valores válidos: pagado, pendiente' },
+            businessId: { type: SchemaType.NUMBER, description: 'ID de la empresa' },
+          },
+          required: ['clientName', 'amount', 'date', 'type', 'status']
+        }
+      };
+
       const model = this.genAI.getGenerativeModel({ 
         model: this.modelName,
         systemInstruction: systemInstruction,
-        tools: [{ functionDeclarations: [getBookingsDeclaration, createCustomerDeclaration, createBusinessDeclaration] }]
+        tools: [{ functionDeclarations: [getBookingsDeclaration, createCustomerDeclaration, createBusinessDeclaration, createBookingDeclaration, createPaymentDeclaration] }]
       });
 
       const history = (dto.history || []).map((msg) => ({
@@ -200,6 +242,95 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
                 }
               }]);
             }
+          }
+          response = await result.response;
+        }
+        else if (call.name === 'create_booking') {
+          const { customerName, customerSurname, customerEmail, customerPhone, date, time, service, businessId } = call.args as any;
+          try {
+            let finalBusinessId = businessId;
+            if (!finalBusinessId) {
+               if (user?.businessId) {
+                  finalBusinessId = user.businessId;
+               } else if (userBusinesses.length > 0) {
+                  finalBusinessId = userBusinesses[0].id;
+               }
+            }
+            
+            // Comprobar si el cliente ya existe
+            let customer = await this.customersService.findByEmail(customerEmail);
+            if (!customer) {
+               customer = await this.customersService.create({
+                 name: customerName,
+                 surname: customerSurname,
+                 email: customerEmail,
+                 phone: customerPhone,
+                 businessId: finalBusinessId
+               });
+            }
+
+            const newBooking = await this.bookingsService.create({
+              date,
+              time,
+              status: 'pending',
+              customerId: customer.id,
+              businessId: finalBusinessId,
+              serviceName: service
+            });
+
+            result = await chat.sendMessage([{
+              functionResponse: {
+                name: 'create_booking',
+                response: { success: true, booking: newBooking, message: "Reserva creada exitosamente" }
+              }
+            }]);
+          } catch (e: any) {
+            result = await chat.sendMessage([{
+              functionResponse: {
+                name: 'create_booking',
+                response: { success: false, error: e.message || "Error al crear la reserva" }
+              }
+            }]);
+          }
+          response = await result.response;
+        }
+        else if (call.name === 'create_payment') {
+          const { clientName, amount, date, type, status, businessId } = call.args as any;
+          try {
+            let finalBusinessId = businessId;
+            if (!finalBusinessId) {
+               if (user?.businessId) {
+                  finalBusinessId = user.businessId;
+               } else if (userBusinesses.length > 0) {
+                  finalBusinessId = userBusinesses[0].id;
+               }
+            }
+
+            const businessName = userBusinesses.find(b => b.id === finalBusinessId)?.nombre || 'Empresa Desconocida';
+
+            const newPayment = await this.paymentsService.create({
+              clientName,
+              amount: parseFloat(amount),
+              date,
+              type,
+              status,
+              businessName,
+              businessId: finalBusinessId
+            });
+
+            result = await chat.sendMessage([{
+              functionResponse: {
+                name: 'create_payment',
+                response: { success: true, payment: newPayment, message: "Pago registrado exitosamente" }
+              }
+            }]);
+          } catch (e: any) {
+            result = await chat.sendMessage([{
+              functionResponse: {
+                name: 'create_payment',
+                response: { success: false, error: e.message || "Error al registrar el pago" }
+              }
+            }]);
           }
           response = await result.response;
         }
