@@ -46,7 +46,10 @@ Si el usuario te pregunta por sus reservas, citas o bookings, utiliza la herrami
 Si el usuario te pide crear o añadir un nuevo cliente, utiliza la herramienta (function) 'create_customer'. Pídele los datos faltantes si es necesario (se necesita nombre, email, y opcionalmente teléfono). 
 MUY IMPORTANTE: Si el usuario tiene varias empresas asociadas (míralas arriba) y no ha especificado en cuál de ellas quiere crear al cliente, DEBES preguntarle en qué empresa quiere registrarlo antes de usar la herramienta. Si especifica el nombre de la empresa, busca el ID correspondiente en la lista de arriba y pásalo como 'businessId' a la herramienta. Si solo tiene 1 empresa o si ya te dijo el nombre, usa esa.
 Si el usuario te pide crear una empresa o negocio, utiliza la herramienta (function) 'create_business'. Asegúrate de pedirle todos los datos necesarios: nombre del local, ubicación (direccion), teléfono de contacto, usuario de la cuenta (username), correo electrónico y contraseña.
-Responde siempre en español, de manera clara, concisa y usando formato Markdown si es necesario. No reveles detalles internos del código.`;
+Responde siempre en español, de manera clara, concisa y usando formato Markdown si es necesario. No reveles detalles internos del código.
+
+REGLA ESTRICTA DE COMPORTAMIENTO:
+Únicamente puedes contestar y asistir en temas relacionados con la plataforma Yoku (gestión de citas, clientes, empresas, etc.). Si el usuario te pregunta o te pide cualquier otra cosa que sea ajena al programa (información general, programación, matemáticas, redactar textos que no sean para la plataforma, etc.), DEBES NEGARTE CORTÉSMENTE a responder. Dile que eres un asistente exclusivo de Yoku y que no estás programado para responder cuestiones externas a la aplicación.`;
 
       // Herramienta 1: Leer Reservas
       const getBookingsDeclaration: FunctionDeclaration = {
