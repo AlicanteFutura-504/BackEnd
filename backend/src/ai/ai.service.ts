@@ -164,7 +164,7 @@ Responde siempre en español, de manera clara, concisa y usando formato Markdown
           response = await result.response;
         }
         else if (call.name === 'create_business') {
-          if (user.role !== 'ADMIN' && user.username !== 'root') {
+          if (user.role !== 'admin' && user.role !== 'ADMIN' && user.username !== 'root') {
              result = await chat.sendMessage([{
               functionResponse: {
                 name: 'create_business',
