@@ -270,8 +270,8 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
             if (!finalBusinessId) {
                if (user?.businessId) {
                   finalBusinessId = user.businessId;
-               } else if (userBusinesses.length > 0) {
-                  finalBusinessId = userBusinesses[0].id;
+               } else if (userBusinesses.data.length > 0) {
+                  finalBusinessId = userBusinesses.data[0].id;
                }
             }
             
@@ -328,12 +328,12 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
               if (!finalBusinessId) {
                  if (user?.businessId) {
                     finalBusinessId = user.businessId;
-                 } else if (userBusinesses.length > 0) {
-                    finalBusinessId = userBusinesses[0].id;
+                 } else if (userBusinesses.data.length > 0) {
+                    finalBusinessId = userBusinesses.data[0].id;
                  }
               }
 
-              const businessName = userBusinesses.find(b => b.id === finalBusinessId)?.nombre || 'Empresa Desconocida';
+              const businessName = userBusinesses.data.find(b => b.id === finalBusinessId)?.nombre || 'Empresa Desconocida';
 
               const newPayment = await this.paymentsService.create({
                 clientName,
