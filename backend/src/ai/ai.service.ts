@@ -28,8 +28,8 @@ export class AiService {
     try {
       // Fetch available businesses for the user to provide context to Gemini
       const userBusinesses = await this.businessService.findAll(user.userId, user.role, user.username);
-      const businessListString = userBusinesses.length > 0 
-        ? userBusinesses.map(b => `- ID: ${b.id}, Nombre: ${b.nombre}`).join('\n')
+      const businessListString = userBusinesses.data.length > 0 
+        ? userBusinesses.data.map(b => `- ID: ${b.id}, Nombre: ${b.nombre}`).join('\n')
         : 'Ninguna (no tiene negocios)';
 
       const systemInstruction = `Eres el Asistente Virtual Oficial de Yoku.
@@ -137,8 +137,8 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
             if (!finalBusinessId) {
                if (user?.businessId) {
                   finalBusinessId = user.businessId;
-               } else if (userBusinesses.length > 0) {
-                  finalBusinessId = userBusinesses[0].id; // Fallback al primero
+               } else if (userBusinesses.data.length > 0) {
+                  finalBusinessId = userBusinesses.data[0].id; // Fallback al primero
                }
             }
 

@@ -1,0 +1,15 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { DashboardController } from './dashboard.controller';
+import { DashboardService } from './dashboard.service';
+import { Business } from '../business/business.entity';
+import { BookingEntity } from '../bookings/booking.entity';
+import { Customer } from '../customers/customer.entity';
+import { Payment } from '../payments/payments.entity';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Business, BookingEntity, Customer, Payment])],
+  controllers: [DashboardController],
+  providers: [DashboardService],
+})
+export class DashboardModule {}

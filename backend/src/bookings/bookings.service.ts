@@ -49,12 +49,33 @@ export class BookingsService {
     return this.bookingsRepository.find({ where: { businessId: In(ids) } });
   }
 
-  async findByBusiness(businessId: number, user: ReqUser): Promise<BookingEntity[]> {
+  async findByBusiness(
+    businessId: number, 
+    user: ReqUser,
+    page: number = 1,
+    limit: number = 20,
+    search: string = ''
+  ): Promise<{ data: BookingEntity[], total: number }> {
     const ids = await this.getAccessibleIds(user);
     if (ids !== null && !ids.includes(businessId)) {
       throw new ForbiddenException('No tienes acceso a este negocio');
     }
-    return this.bookingsRepository.find({ where: { businessId } });
+    
+    const query = this.bookingsRepository.createQueryBuilder('booking')
+      .where('booking.businessId = :businessId', { businessId });
+      
+    if (search) {
+      query.andWhere('LOWER(booking.serviceName) LIKE LOWER(:search)', { search: `%${search}%` });
+    }
+    
+    const [data, total] = await query
+      .orderBy('booking.date', 'DESC')
+      .addOrderBy('booking.time', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+      
+    return { data, total };
   }
 
   async findByCustomer(customerId: number, user: ReqUser): Promise<BookingEntity[]> {

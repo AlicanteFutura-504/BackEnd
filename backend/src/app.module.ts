@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { BookingsModule } from './bookings/bookings.module';
 import { AiModule } from './ai/ai.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 /**
  * Módulo raíz de la aplicación NestJS.
@@ -44,6 +45,7 @@ import { AiModule } from './ai/ai.module';
     AuthModule,
     BookingsModule,
     AiModule,
+    DashboardModule,
   ],
   controllers: [],
   providers: [
