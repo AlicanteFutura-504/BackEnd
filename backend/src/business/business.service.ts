@@ -42,17 +42,67 @@ export class BusinessService {
     return this.businessRepository.save(nuevaEmpresa);
   }
 
-  async findAll(userId: number, role: UserRole, username?: string): Promise<Business[]> {
+  async findAll(
+    userId: number, 
+    role: UserRole, 
+    username?: string, 
+    page: number = 1, 
+    limit: number = 20, 
+    search: string = '',
+    sortBy: string = 'id',
+    sortOrder: 'ASC' | 'DESC' = 'DESC',
+    filterField?: string,
+    filterValue?: string
+  ): Promise<{ data: Business[], total: number }> {
+    const query = this.businessRepository.createQueryBuilder('business');
+    
     if (username === 'root') {
-      return this.businessRepository.find({ relations: ['usuario'] });
+      query.leftJoinAndSelect('business.usuario', 'usuario');
+    } else if (role === UserRole.ADMIN) {
+      query.where('business.usuarioId = :userId', { userId });
+    } else if (role === UserRole.BUSINESS) {
+      query.where('business.businessUserId = :userId', { userId });
+    } else {
+      query.where('1 = 0'); // Fallback si no tiene rol conocido
     }
 
-    if (role === UserRole.ADMIN) {
-      return this.businessRepository.find({ where: { usuarioId: userId } });
-    } else if (role === UserRole.BUSINESS) {
-      return this.businessRepository.find({ where: { businessUserId: userId } });
+    if (search) {
+      const searchCondition = '(LOWER(business.nombre) LIKE LOWER(:search) OR LOWER(business.direccion) LIKE LOWER(:search) OR LOWER(business.telefono) LIKE LOWER(:search))';
+      
+      if (username === 'root') {
+        query.andWhere(`(${searchCondition} OR LOWER(usuario.nombreCompleto) LIKE LOWER(:search) OR LOWER(usuario.username) LIKE LOWER(:search))`, { search: `%${search}%` });
+      } else {
+        query.andWhere(searchCondition, { search: `%${search}%` });
+      }
     }
-    return [];
+
+    // Specific filters
+    if (filterField && filterValue) {
+      if (filterField === 'has_phone') {
+        if (filterValue === 'true') query.andWhere('business.telefono IS NOT NULL');
+        else query.andWhere('business.telefono IS NULL');
+      } else if (filterField === 'has_address') {
+        if (filterValue === 'true') query.andWhere('business.direccion IS NOT NULL');
+        else query.andWhere('business.direccion IS NULL');
+      } else {
+        query.andWhere(`LOWER(business.${filterField}) LIKE LOWER(:filterValue)`, { filterValue: `%${filterValue}%` });
+      }
+    }
+
+    // Sorting
+    const allowedSortFields = ['id', 'nombre', 'direccion', 'telefono'];
+    if (allowedSortFields.includes(sortBy)) {
+      query.orderBy(`business.${sortBy}`, sortOrder);
+    } else {
+      query.orderBy('business.id', 'DESC');
+    }
+
+    const [data, total] = await query
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total };
   }
 
   async findOne(id: number, userId: number, role: UserRole, username?: string): Promise<Business> {

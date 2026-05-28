@@ -29,8 +29,20 @@ export class BookingsController {
   }
 
   @Get('business/:businessId')
-  findByBusiness(@Param('businessId') businessId: string, @Req() req: any) {
-    return this.bookingsService.findByBusiness(+businessId, req.user);
+  findByBusiness(
+    @Param('businessId') businessId: string, 
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string
+  ) {
+    return this.bookingsService.findByBusiness(
+      +businessId, 
+      req.user,
+      page ? parseInt(page) : 1,
+      limit ? parseInt(limit) : 20,
+      search || ''
+    );
   }
 
   @Get('customer/:customerId')

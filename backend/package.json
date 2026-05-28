@@ -17,9 +17,15 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "seed:more": "node seed_more_customers.js",
+    "seed:all": "node seed_all_businesses.js",
+    "seed:paid": "node seed_paid_bookings.js",
+    "seed:avatars": "node seed_profile_pictures.js",
+    "seed:massive": "node seed_massive.js"
   },
   "dependencies": {
+    "@faker-js/faker": "^10.4.0",
     "@google/generative-ai": "^0.24.1",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
