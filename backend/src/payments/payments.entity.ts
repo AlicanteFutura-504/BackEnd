@@ -1,6 +1,5 @@
 import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, JoinColumn } from 'typeorm';
-import { Customer } from '../customers/customer.entity';
-import { Business } from '../business/business.entity';
+import { BookingEntity } from '../bookings/booking.entity';
 
 /**
  * Enumeración que define los tipos de pago.
@@ -45,32 +44,13 @@ export class Payment {
   })
   type: PaymentType;
 
-  /** 
-   * Nombre del cliente (De-normalizado). 
-   * Se recomienda que sea el nombre completo (name + surname) del Customer 
-   * para facilitar listados históricos si el cliente se borra.
-   */
-  @Column()
-  clientName: string;
-
-  /** Relación opcional con la entidad Customer. */
+  /** Relación con la reserva, desde la cual se pueden obtener los datos del cliente y del negocio. */
   @Column({ nullable: true })
-  customerId: number;
+  bookingId: number;
 
-  @ManyToOne(() => Customer, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'customerId' })
-  customer: Customer;
-
-  @Column()
-  businessName: string;
-
-  /** Relación con la entidad Business. */
-  @Column({ nullable: true })
-  businessId: number;
-
-  @ManyToOne(() => Business, { onDelete: 'SET NULL', nullable: true })
-  @JoinColumn({ name: 'businessId' })
-  business: Business;
+  @ManyToOne(() => BookingEntity, { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'bookingId' })
+  booking: BookingEntity;
 
   @Column()
   amount: number;

@@ -52,7 +52,17 @@ export class CustomersService {
 
     const query = this.customerRepository.createQueryBuilder('customer');
     if (ids !== null) {
-      query.where('customer.businessId IN (:...ids)', { ids });
+      const bookingRepo = this.dataSource.getRepository(BookingEntity);
+      const bookings = await bookingRepo.find({ where: { businessId: In(ids) }, select: ['customerId'] });
+      
+      const relatedCustomerIds = new Set<number>();
+      bookings.forEach(b => { if (b.customerId) relatedCustomerIds.add(b.customerId); });
+
+      if (relatedCustomerIds.size === 0) {
+        return { data: [], total: 0 };
+      }
+      
+      query.where('customer.id IN (:...relatedCustomerIds)', { relatedCustomerIds: Array.from(relatedCustomerIds) });
     }
 
     if (search) {
@@ -83,29 +93,19 @@ export class CustomersService {
       throw new ForbiddenException('No tienes acceso a este negocio');
     }
 
-    // Obtener clientes asociados a través de reservas o pagos
+    // Obtener clientes asociados a través de reservas
     const bookingRepo = this.dataSource.getRepository(BookingEntity);
-    const paymentRepo = this.dataSource.getRepository(Payment);
-
     const bookings = await bookingRepo.find({ where: { businessId }, select: ['customerId'] });
-    const payments = await paymentRepo.find({ where: { businessId }, select: ['customerId'] });
 
     const relatedCustomerIds = new Set<number>();
     bookings.forEach(b => { if (b.customerId) relatedCustomerIds.add(b.customerId); });
-    payments.forEach(p => { if (p.customerId) relatedCustomerIds.add(p.customerId); });
+
+    if (relatedCustomerIds.size === 0) {
+      return { data: [], total: 0 };
+    }
 
     const query = this.customerRepository.createQueryBuilder('customer');
-    
-    if (relatedCustomerIds.size > 0) {
-      query.where(
-        new Brackets(qb => {
-          qb.where('customer.businessId = :businessId', { businessId })
-            .orWhere('customer.id IN (:...relatedCustomerIds)', { relatedCustomerIds: Array.from(relatedCustomerIds) });
-        })
-      );
-    } else {
-      query.where('customer.businessId = :businessId', { businessId });
-    }
+    query.where('customer.id IN (:...relatedCustomerIds)', { relatedCustomerIds: Array.from(relatedCustomerIds) });
 
     if (search) {
       query.andWhere(
