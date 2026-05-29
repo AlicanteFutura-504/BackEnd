@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, DataSource, Brackets } from 'typeorm';
 import { Customer } from './customer.entity';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { PaymentsService } from '../payments/payments.service';
 import { Business } from '../business/business.entity';
+import { BookingEntity } from '../bookings/booking.entity';
+import { Payment } from '../payments/payments.entity';
 
 interface ReqUser {
   userId: number;
@@ -22,6 +24,7 @@ export class CustomersService {
     @InjectRepository(Business)
     private readonly businessRepository: Repository<Business>,
     private readonly paymentsService: PaymentsService,
+    private readonly dataSource: DataSource,
   ) {}
 
   private async getAccessibleIds(user: ReqUser): Promise<number[] | null> {
@@ -80,8 +83,29 @@ export class CustomersService {
       throw new ForbiddenException('No tienes acceso a este negocio');
     }
 
-    const query = this.customerRepository.createQueryBuilder('customer')
-      .where('customer.businessId = :businessId', { businessId });
+    // Obtener clientes asociados a través de reservas o pagos
+    const bookingRepo = this.dataSource.getRepository(BookingEntity);
+    const paymentRepo = this.dataSource.getRepository(Payment);
+
+    const bookings = await bookingRepo.find({ where: { businessId }, select: ['customerId'] });
+    const payments = await paymentRepo.find({ where: { businessId }, select: ['customerId'] });
+
+    const relatedCustomerIds = new Set<number>();
+    bookings.forEach(b => { if (b.customerId) relatedCustomerIds.add(b.customerId); });
+    payments.forEach(p => { if (p.customerId) relatedCustomerIds.add(p.customerId); });
+
+    const query = this.customerRepository.createQueryBuilder('customer');
+    
+    if (relatedCustomerIds.size > 0) {
+      query.where(
+        new Brackets(qb => {
+          qb.where('customer.businessId = :businessId', { businessId })
+            .orWhere('customer.id IN (:...relatedCustomerIds)', { relatedCustomerIds: Array.from(relatedCustomerIds) });
+        })
+      );
+    } else {
+      query.where('customer.businessId = :businessId', { businessId });
+    }
 
     if (search) {
       query.andWhere(
