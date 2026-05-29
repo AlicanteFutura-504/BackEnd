@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -12,14 +12,36 @@ export class CustomersController {
 
   @Get()
   @ApiOperation({ summary: 'Obtener todos los clientes accesibles' })
-  findAll(@Req() req: any) {
-    return this.customersService.findAll(req.user);
+  findAll(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string
+  ) {
+    return this.customersService.findAll(
+      req.user,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      search || ''
+    );
   }
 
   @Get('business/:businessId')
   @ApiOperation({ summary: 'Obtener clientes de un negocio específico' })
-  findAllByBusiness(@Param('businessId', ParseIntPipe) businessId: number, @Req() req: any) {
-    return this.customersService.findAllByBusiness(businessId, req.user);
+  findAllByBusiness(
+    @Param('businessId', ParseIntPipe) businessId: number, 
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string
+  ) {
+    return this.customersService.findAllByBusiness(
+      businessId, 
+      req.user,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      search || ''
+    );
   }
 
   @Get('by-email/:email')

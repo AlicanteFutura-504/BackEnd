@@ -215,11 +215,11 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
               }
             }]);
           }
-          }
+          } // CIERRE DEL ELSE
           response = await result.response;
         }
         else if (call.name === 'create_business') {
-          if (user.role !== 'admin' && user.role !== 'ADMIN' && user.username !== 'root') {
+          if (user.role !== 'admin' && user.role !== 'superadmin') {
              result = await chat.sendMessage([{
               functionResponse: {
                 name: 'create_business',

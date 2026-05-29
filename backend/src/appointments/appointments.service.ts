@@ -21,10 +21,28 @@ export class AppointmentsService {
    * Las devuelve ordenadas por fecha y hora de forma ascendente.
    * @returns Lista completa de reservas (Appointment[])
    */
-  async findAll() {
-    return await this.appointmentsRepository.find({
-      order: { date: 'ASC', time: 'ASC' },
-    });
+  async findAll(
+    page: number = 1,
+    limit: number = 20,
+    search: string = ''
+  ): Promise<{ data: Appointment[], total: number }> {
+    const query = this.appointmentsRepository.createQueryBuilder('appointment');
+
+    if (search) {
+      query.andWhere(
+        '(LOWER(appointment.serviceName) LIKE LOWER(:search) OR LOWER(appointment.status) LIKE LOWER(:search))',
+        { search: `%${search}%` }
+      );
+    }
+
+    const [data, total] = await query
+      .orderBy('appointment.date', 'DESC')
+      .addOrderBy('appointment.time', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total };
   }
 
   /**

@@ -26,7 +26,7 @@ export class UsuariosService implements OnModuleInit {
         username: 'root',
         email: 'root@yoku.com',
         contrasena: hashedContrasena,
-        role: UserRole.ADMIN,
+        role: UserRole.SUPERADMIN,
         nombreCompleto: 'Super Admin (Developer)',
       });
       await this.usuariosRepository.save(nuevoRoot);

@@ -28,25 +28,48 @@ export class BookingsService {
    * - BUSINESS    → [businessId] del token
    */
   private async getAccessibleIds(user: ReqUser): Promise<number[] | null> {
-    if (user.username === 'root') return null;
+    if (user.role === 'superadmin') return null;
 
-    if (user.role === 'business') {
-      return user.businessId ? [user.businessId] : [];
-    }
+    const whereCondition = user.role === 'admin' 
+      ? { usuarioId: user.userId } 
+      : { businessUserId: user.userId };
 
-    // ADMIN: obtener todos sus negocios
     const businesses = await this.businessRepository.find({
-      where: { usuarioId: user.userId },
+      where: whereCondition,
       select: ['id'],
     });
     return businesses.map((b) => b.id);
   }
 
-  async findAll(user: ReqUser): Promise<BookingEntity[]> {
+  async findAll(
+    user: ReqUser,
+    page: number = 1,
+    limit: number = 20,
+    search: string = ''
+  ): Promise<{ data: BookingEntity[], total: number }> {
     const ids = await this.getAccessibleIds(user);
-    if (ids === null) return this.bookingsRepository.find();
-    if (ids.length === 0) return [];
-    return this.bookingsRepository.find({ where: { businessId: In(ids) } });
+    if (ids !== null && ids.length === 0) return { data: [], total: 0 };
+
+    const query = this.bookingsRepository.createQueryBuilder('booking');
+    if (ids !== null) {
+      query.where('booking.businessId IN (:...ids)', { ids });
+    }
+
+    if (search) {
+      query.andWhere(
+        '(LOWER(booking.serviceName) LIKE LOWER(:search))',
+        { search: `%${search}%` }
+      );
+    }
+
+    const [data, total] = await query
+      .orderBy('booking.date', 'DESC')
+      .addOrderBy('booking.time', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total };
   }
 
   async findByBusiness(

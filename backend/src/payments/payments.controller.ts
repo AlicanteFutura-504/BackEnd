@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, Query } from '@nestjs/common';
 import { ApiCreatedResponse, ApiOkResponse, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/create-payments.dto';
@@ -12,8 +12,20 @@ export class PaymentsController {
 
   @Get()
   @ApiOkResponse({ description: 'Listado de pagos filtrado por acceso' })
-  findAll(@Req() req: any) {
-    return this.paymentsService.findAll(req.user);
+  findAll(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('businessId') businessId?: string
+  ) {
+    return this.paymentsService.findAll(
+      req.user,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      search || '',
+      businessId
+    );
   }
 
   @Get(':id')
