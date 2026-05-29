@@ -25,30 +25,78 @@ export class CustomersService {
   ) {}
 
   private async getAccessibleIds(user: ReqUser): Promise<number[] | null> {
-    if (user.username === 'root') return null;
-    if (user.role === 'business') {
-      return user.businessId ? [user.businessId] : [];
-    }
+    if (user.role === 'superadmin') return null;
+
+    const whereCondition = user.role === 'admin' 
+      ? { usuarioId: user.userId } 
+      : { businessUserId: user.userId };
+
     const businesses = await this.businessRepository.find({
-      where: { usuarioId: user.userId },
+      where: whereCondition,
       select: ['id'],
     });
     return businesses.map((b) => b.id);
   }
 
-  async findAll(user: ReqUser) {
+  async findAll(
+    user: ReqUser,
+    page: number = 1,
+    limit: number = 20,
+    search: string = ''
+  ): Promise<{ data: Customer[], total: number }> {
     const ids = await this.getAccessibleIds(user);
-    if (ids === null) return this.customerRepository.find();
-    if (ids.length === 0) return [];
-    return this.customerRepository.find({ where: { businessId: In(ids) } });
+    if (ids !== null && ids.length === 0) return { data: [], total: 0 };
+
+    const query = this.customerRepository.createQueryBuilder('customer');
+    if (ids !== null) {
+      query.where('customer.businessId IN (:...ids)', { ids });
+    }
+
+    if (search) {
+      query.andWhere(
+        '(LOWER(customer.name) LIKE LOWER(:search) OR LOWER(customer.surname) LIKE LOWER(:search) OR LOWER(customer.email) LIKE LOWER(:search) OR LOWER(customer.phone) LIKE LOWER(:search))',
+        { search: `%${search}%` }
+      );
+    }
+
+    const [data, total] = await query
+      .orderBy('customer.id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total };
   }
 
-  async findAllByBusiness(businessId: number, user: ReqUser) {
+  async findAllByBusiness(
+    businessId: number, 
+    user: ReqUser,
+    page: number = 1,
+    limit: number = 20,
+    search: string = ''
+  ): Promise<{ data: Customer[], total: number }> {
     const ids = await this.getAccessibleIds(user);
     if (ids !== null && !ids.includes(businessId)) {
       throw new ForbiddenException('No tienes acceso a este negocio');
     }
-    return this.customerRepository.find({ where: { businessId } });
+
+    const query = this.customerRepository.createQueryBuilder('customer')
+      .where('customer.businessId = :businessId', { businessId });
+
+    if (search) {
+      query.andWhere(
+        '(LOWER(customer.name) LIKE LOWER(:search) OR LOWER(customer.surname) LIKE LOWER(:search) OR LOWER(customer.email) LIKE LOWER(:search) OR LOWER(customer.phone) LIKE LOWER(:search))',
+        { search: `%${search}%` }
+      );
+    }
+
+    const [data, total] = await query
+      .orderBy('customer.id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total };
   }
 
   async findByEmail(email: string): Promise<Customer | null> {

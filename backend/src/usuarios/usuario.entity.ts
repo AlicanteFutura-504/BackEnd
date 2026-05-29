@@ -5,8 +5,9 @@ import { Business } from '../business/business.entity';
  * Roles de usuario en el sistema.
  */
 export enum UserRole {
-  ADMIN = 'admin',      // Jefe / Empresario
-  BUSINESS = 'business', // Empresa (creada por el admin)
+  SUPERADMIN = 'superadmin', // Desarrolladores / Dueños del SaaS
+  ADMIN = 'admin',           // Jefe / Empresario
+  BUSINESS = 'business',     // Empresa (local creado por el admin)
 }
 
 /**

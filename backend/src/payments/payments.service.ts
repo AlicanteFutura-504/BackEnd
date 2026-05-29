@@ -22,23 +22,56 @@ export class PaymentsService {
     private readonly businessRepository: Repository<Business>,
   ) {}
 
-  private async getAccessibleIds(user: ReqUser): Promise<number[] | null> {
-    if (user.username === 'root') return null;
-    if (user.role === 'business') {
-      return user.businessId ? [user.businessId] : [];
-    }
+  private async getAccessibleIds(user: any): Promise<number[] | null> {
+    if (user.role === 'superadmin') return null;
+
+    const whereCondition = user.role === 'admin' 
+      ? { usuarioId: user.userId } 
+      : { businessUserId: user.userId };
+
     const businesses = await this.businessRepository.find({
-      where: { usuarioId: user.userId },
+      where: whereCondition,
       select: ['id'],
     });
     return businesses.map((b) => b.id);
   }
 
-  async findAll(user: ReqUser) {
+  async findAll(
+    user: ReqUser,
+    page: number = 1,
+    limit: number = 20,
+    search: string = '',
+    businessId?: string
+  ): Promise<{ data: Payment[], total: number }> {
     const ids = await this.getAccessibleIds(user);
-    if (ids === null) return this.paymentsRepository.find();
-    if (ids.length === 0) return [];
-    return this.paymentsRepository.find({ where: { businessId: In(ids) } });
+    if (ids !== null && ids.length === 0) return { data: [], total: 0 };
+
+    const query = this.paymentsRepository.createQueryBuilder('payment');
+    if (ids !== null) {
+      query.where('payment.businessId IN (:...ids)', { ids });
+    }
+
+    if (businessId) {
+      if (ids !== null) {
+        query.andWhere('payment.businessId = :bId', { bId: parseInt(businessId, 10) });
+      } else {
+        query.where('payment.businessId = :bId', { bId: parseInt(businessId, 10) });
+      }
+    }
+
+    if (search) {
+      const searchCondition = '(LOWER(payment.clientName) LIKE LOWER(:search) OR LOWER(payment.businessName) LIKE LOWER(:search))';
+      query.andWhere(searchCondition, { search: `%${search}%` });
+    }
+
+    const [data, total] = await query
+      .orderBy('payment.date', 'DESC')
+      .addOrderBy('payment.id', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total };
   }
 
   async findOne(id: number) {

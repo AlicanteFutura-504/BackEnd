@@ -56,7 +56,7 @@ export class BusinessService {
   ): Promise<{ data: Business[], total: number }> {
     const query = this.businessRepository.createQueryBuilder('business');
     
-    if (username === 'root') {
+    if (role === UserRole.SUPERADMIN) {
       query.leftJoinAndSelect('business.usuario', 'usuario');
     } else if (role === UserRole.ADMIN) {
       query.where('business.usuarioId = :userId', { userId });
@@ -69,7 +69,7 @@ export class BusinessService {
     if (search) {
       const searchCondition = '(LOWER(business.nombre) LIKE LOWER(:search) OR LOWER(business.direccion) LIKE LOWER(:search) OR LOWER(business.telefono) LIKE LOWER(:search))';
       
-      if (username === 'root') {
+      if (role === UserRole.SUPERADMIN) {
         query.andWhere(`(${searchCondition} OR LOWER(usuario.nombreCompleto) LIKE LOWER(:search) OR LOWER(usuario.username) LIKE LOWER(:search))`, { search: `%${search}%` });
       } else {
         query.andWhere(searchCondition, { search: `%${search}%` });
@@ -108,8 +108,8 @@ export class BusinessService {
   async findOne(id: number, userId: number, role: UserRole, username?: string): Promise<Business> {
     const where: any = { id };
     
-    // Si NO es root, aplicamos las reglas de tenencia
-    if (username !== 'root') {
+    // Si NO es SUPERADMIN, aplicamos las reglas de tenencia
+    if (role !== UserRole.SUPERADMIN) {
       if (role === UserRole.ADMIN) {
         where.usuarioId = userId;
       } else if (role === UserRole.BUSINESS) {
@@ -119,7 +119,7 @@ export class BusinessService {
 
     const business = await this.businessRepository.findOne({ 
       where,
-      relations: username === 'root' ? ['usuario'] : []
+      relations: role === UserRole.SUPERADMIN ? ['usuario'] : []
     });
     
     if (!business) {

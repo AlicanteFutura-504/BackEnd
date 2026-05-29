@@ -10,8 +10,18 @@ export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
   @Get()
-  findAll(@Req() req: any) {
-    return this.bookingsService.findAll(req.user);
+  findAll(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string
+  ) {
+    return this.bookingsService.findAll(
+      req.user,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      search || ''
+    );
   }
 
   // IMPORTANTE: declarar antes de rutas con :param

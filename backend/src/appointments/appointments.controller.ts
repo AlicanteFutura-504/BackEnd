@@ -36,8 +36,16 @@ export class AppointmentsController {
    */
   @Get()
   @ApiOkResponse({ description: 'Listado de reservas' })
-  findAll() {
-    return this.appointmentsService.findAll();
+  findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string
+  ) {
+    return this.appointmentsService.findAll(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      search || ''
+    );
   }
 
   /**

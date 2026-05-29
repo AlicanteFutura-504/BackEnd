@@ -23,7 +23,7 @@ export class DashboardService {
     let paymentQuery = this.paymentRepo.createQueryBuilder('p');
 
     // Apply tenancy logic if not root
-    if (user.username !== 'root') {
+    if (user.role !== UserRole.SUPERADMIN) {
       const bSubQuery = this.businessRepo.createQueryBuilder('bs')
         .select('bs.id')
         .where(user.role === UserRole.ADMIN ? 'bs.usuarioId = :userId' : 'bs.businessUserId = :userId');
@@ -35,27 +35,38 @@ export class DashboardService {
       paymentQuery.where(`p.businessId IN (${bSubQuery.getQuery()})`, { userId: user.userId });
     }
 
-    const totalBusinesses = await businessQuery.getCount();
-    const totalBookings = await bookingQuery.getCount();
-    const pendingBookings = await bookingQuery.clone().andWhere("bk.status = 'pending'").getCount();
-    const totalCustomers = await customerQuery.getCount();
-    
-    const earningsResult = await paymentQuery.clone()
-      .andWhere("p.status = 'pagado'")
-      .select("SUM(p.amount)", "total")
-      .getRawOne();
+    // Run all count queries in parallel for maximum performance
+    const [
+      totalBusinesses,
+      totalBookings,
+      pendingBookings,
+      totalCustomers,
+      earningsResult,
+      latestBookings,
+    ] = await Promise.all([
+      businessQuery.getCount(),
+      bookingQuery.getCount(),
+      bookingQuery.clone().andWhere("bk.status = 'pending'").getCount(),
+      customerQuery.getCount(),
+      paymentQuery.clone()
+        .andWhere("p.status = 'pagado'")
+        .select("SUM(p.amount)", "total")
+        .getRawOne(),
+      bookingQuery.clone()
+        .orderBy('bk.date', 'DESC')
+        .addOrderBy('bk.id', 'DESC')
+        .take(5)
+        .getMany(),
+    ]);
+
     const totalEarnings = earningsResult?.total || 0;
 
-    const latestBookings = await bookingQuery.clone()
-      .orderBy('bk.date', 'DESC')
-      .take(5)
-      .getMany();
-
-    // Attach business names manually
+    // Attach business names
     const businessIds = [...new Set(latestBookings.map(b => b.businessId))];
     let businessMap = new Map<number, string>();
     if (businessIds.length > 0) {
-      const businesses = await this.businessRepo.findByIds(businessIds);
+      const { In } = await import('typeorm');
+      const businesses = await this.businessRepo.findBy({ id: In(businessIds) });
       businessMap = new Map(businesses.map(b => [b.id, b.nombre]));
     }
 
@@ -72,6 +83,44 @@ export class DashboardService {
         status: b.status,
         businessName: businessMap.get(b.businessId) || 'Local'
       }))
+    };
+  }
+
+  async getBusinessSummary(businessId: number, user: any) {
+    // Verify access: superadmin sees all, admin sees their own, business sees theirs
+    if (user.role !== 'superadmin') {
+      const field = user.role === 'admin' ? 'usuarioId' : 'businessUserId';
+      const business = await this.businessRepo
+        .createQueryBuilder('b')
+        .where(`b.id = :businessId AND b.${field} = :userId`, { businessId, userId: user.userId })
+        .getOne();
+      if (!business) throw new Error('Access denied');
+    }
+
+    const [totalBookings, pendingBookings, totalCustomers, earningsResult, latestBookings] = await Promise.all([
+      this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId', { businessId }).getCount(),
+      this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId AND bk.status = :s', { businessId, s: 'pending' }).getCount(),
+      this.customerRepo.createQueryBuilder('c').where('c.businessId = :businessId', { businessId }).getCount(),
+      this.paymentRepo.createQueryBuilder('p')
+        .where('p.businessId = :businessId AND p.status = :s', { businessId, s: 'pagado' })
+        .select('SUM(p.amount)', 'total')
+        .addSelect('SUM(CASE WHEN p.status = \'pendiente\' THEN p.amount ELSE 0 END)', 'pending')
+        .getRawOne(),
+      this.bookingRepo.createQueryBuilder('bk')
+        .where('bk.businessId = :businessId', { businessId })
+        .orderBy('bk.date', 'DESC')
+        .addOrderBy('bk.id', 'DESC')
+        .take(5)
+        .getMany(),
+    ]);
+
+    return {
+      totalBookings,
+      pendingBookings,
+      totalCustomers,
+      totalRevenue: Number(earningsResult?.total || 0),
+      pendingRevenue: Number(earningsResult?.pending || 0),
+      latestBookings,
     };
   }
 }
