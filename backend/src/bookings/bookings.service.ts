@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BookingEntity } from './booking.entity';
 import { Business } from '../business/business.entity';
+import { Payment } from '../payments/payments.entity';
 
 /** Datos del usuario autenticado extraídos del JWT */
 interface ReqUser {
@@ -50,14 +51,16 @@ export class BookingsService {
     const ids = await this.getAccessibleIds(user);
     if (ids !== null && ids.length === 0) return { data: [], total: 0 };
 
-    const query = this.bookingsRepository.createQueryBuilder('booking');
+    const query = this.bookingsRepository.createQueryBuilder('booking')
+      .leftJoinAndMapOne('booking.payment', Payment, 'payment', '"payment"."bookingId" = "booking"."id"');
+      
     if (ids !== null) {
       query.where('booking.businessId IN (:...ids)', { ids });
     }
 
     if (search) {
       query.andWhere(
-        '(LOWER(booking.serviceName) LIKE LOWER(:search))',
+        '(LOWER(booking."serviceName") LIKE LOWER(:search))',
         { search: `%${search}%` }
       );
     }
@@ -85,10 +88,11 @@ export class BookingsService {
     }
     
     const query = this.bookingsRepository.createQueryBuilder('booking')
+      .leftJoinAndMapOne('booking.payment', Payment, 'payment', '"payment"."bookingId" = "booking"."id"')
       .where('booking.businessId = :businessId', { businessId });
       
     if (search) {
-      query.andWhere('LOWER(booking.serviceName) LIKE LOWER(:search)', { search: `%${search}%` });
+      query.andWhere('LOWER(booking."serviceName") LIKE LOWER(:search)', { search: `%${search}%` });
     }
     
     const [data, total] = await query
@@ -112,14 +116,17 @@ export class BookingsService {
     });
   }
 
-  async findByDateRange(from: string, to: string, user: ReqUser): Promise<BookingEntity[]> {
+  async findByDateRange(from: string, to: string, user: ReqUser, businessId?: number): Promise<BookingEntity[]> {
     const ids = await this.getAccessibleIds(user);
     const qb = this.bookingsRepository
       .createQueryBuilder('booking')
       .where('booking.date >= :from', { from })
       .andWhere('booking.date <= :to', { to });
 
-    if (ids !== null) {
+    if (businessId) {
+      if (ids !== null && !ids.includes(businessId)) throw new ForbiddenException('No tienes acceso a este negocio');
+      qb.andWhere('booking.businessId = :businessId', { businessId });
+    } else if (ids !== null) {
       if (ids.length === 0) return [];
       qb.andWhere('booking.businessId IN (:...ids)', { ids });
     }

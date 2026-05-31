@@ -5,6 +5,7 @@ import { Payment } from './payments.entity';
 import { CreatePaymentDto } from './dto/create-payments.dto';
 import { UpdatePaymentDto } from './dto/update-payments.dto';
 import { Business } from '../business/business.entity';
+import { Customer } from '../customers/customer.entity';
 
 interface ReqUser {
   userId: number;
@@ -46,22 +47,20 @@ export class PaymentsService {
     const ids = await this.getAccessibleIds(user);
     if (ids !== null && ids.length === 0) return { data: [], total: 0 };
 
-    const query = this.paymentsRepository.createQueryBuilder('payment');
+    const query = this.paymentsRepository.createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.booking', 'booking')
+      .leftJoinAndMapOne('payment.customer', Customer, 'customer', '"customer"."id" = "booking"."customerId"');
+
     if (ids !== null) {
-      query.where('payment.businessId IN (:...ids)', { ids });
+      query.where('"booking"."businessId" IN (:...ids)', { ids });
     }
 
     if (businessId) {
       if (ids !== null) {
-        query.andWhere('payment.businessId = :bId', { bId: parseInt(businessId, 10) });
+        query.andWhere('"booking"."businessId" = :bId', { bId: parseInt(businessId, 10) });
       } else {
-        query.where('payment.businessId = :bId', { bId: parseInt(businessId, 10) });
+        query.where('"booking"."businessId" = :bId', { bId: parseInt(businessId, 10) });
       }
-    }
-
-    if (search) {
-      const searchCondition = '(LOWER(payment.clientName) LIKE LOWER(:search) OR LOWER(payment.businessName) LIKE LOWER(:search))';
-      query.andWhere(searchCondition, { search: `%${search}%` });
     }
 
     const [data, total] = await query
@@ -75,7 +74,11 @@ export class PaymentsService {
   }
 
   async findOne(id: number) {
-    const payment = await this.paymentsRepository.findOneBy({ id });
+    const payment = await this.paymentsRepository.createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.booking', 'booking')
+      .leftJoinAndMapOne('payment.customer', Customer, 'customer', '"customer"."id" = "booking"."customerId"')
+      .where('payment.id = :id', { id })
+      .getOne();
     if (!payment) throw new NotFoundException(`No existe el pago con id ${id}`);
     return payment;
   }
@@ -89,7 +92,7 @@ export class PaymentsService {
     const payment = await this.findOne(id);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && payment.businessId && !ids.includes(payment.businessId)) {
+    if (ids !== null && payment.booking?.businessId && !ids.includes(payment.booking.businessId)) {
       throw new ForbiddenException('No tienes permiso para modificar este pago');
     }
 
@@ -101,7 +104,7 @@ export class PaymentsService {
     const payment = await this.findOne(id);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && payment.businessId && !ids.includes(payment.businessId)) {
+    if (ids !== null && payment.booking?.businessId && !ids.includes(payment.booking.businessId)) {
       throw new ForbiddenException('No tienes permiso para eliminar este pago');
     }
 
@@ -109,7 +112,5 @@ export class PaymentsService {
     return { message: `Pago ${id} eliminado correctamente` };
   }
 
-  async updateClientNameForCustomer(customerId: number, clientName: string) {
-    await this.paymentsRepository.update({ customerId }, { clientName });
-  }
+
 }

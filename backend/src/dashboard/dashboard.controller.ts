@@ -18,6 +18,7 @@ export class DashboardController {
     try {
       return await this.dashboardService.getBusinessSummary(+id, req.user);
     } catch (e) {
+      console.error("Error in getBusinessSummary:", e);
       throw new ForbiddenException('No tienes acceso a este negocio');
     }
   }

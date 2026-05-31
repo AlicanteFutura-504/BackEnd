@@ -20,7 +20,7 @@ export class DashboardService {
     let businessQuery = this.businessRepo.createQueryBuilder('b');
     let bookingQuery = this.bookingRepo.createQueryBuilder('bk');
     let customerQuery = this.customerRepo.createQueryBuilder('c');
-    let paymentQuery = this.paymentRepo.createQueryBuilder('p');
+    let paymentQuery = this.paymentRepo.createQueryBuilder('p').leftJoin('p.booking', 'booking');
 
     // Apply tenancy logic if not root
     if (user.role !== UserRole.SUPERADMIN) {
@@ -31,8 +31,7 @@ export class DashboardService {
       businessQuery.where(user.role === UserRole.ADMIN ? 'b.usuarioId = :userId' : 'b.businessUserId = :userId', { userId: user.userId });
       
       bookingQuery.where(`bk.businessId IN (${bSubQuery.getQuery()})`, { userId: user.userId });
-      customerQuery.where(`c.businessId IN (${bSubQuery.getQuery()})`, { userId: user.userId });
-      paymentQuery.where(`p.businessId IN (${bSubQuery.getQuery()})`, { userId: user.userId });
+      paymentQuery.where(`booking.businessId IN (${bSubQuery.getQuery()})`, { userId: user.userId });
     }
 
     // Run all count queries in parallel for maximum performance
@@ -47,7 +46,9 @@ export class DashboardService {
       businessQuery.getCount(),
       bookingQuery.getCount(),
       bookingQuery.clone().andWhere("bk.status = 'pending'").getCount(),
-      customerQuery.getCount(),
+      user.role === UserRole.SUPERADMIN 
+        ? customerQuery.getCount() 
+        : bookingQuery.clone().select('COUNT(DISTINCT "bk"."customerId")', 'count').getRawOne().then(res => Number(res?.count || 0)),
       paymentQuery.clone()
         .andWhere("p.status = 'pagado'")
         .select("SUM(p.amount)", "total")
@@ -100,10 +101,11 @@ export class DashboardService {
     const [totalBookings, pendingBookings, totalCustomers, earningsResult, latestBookings] = await Promise.all([
       this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId', { businessId }).getCount(),
       this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId AND bk.status = :s', { businessId, s: 'pending' }).getCount(),
-      this.customerRepo.createQueryBuilder('c').where('c.businessId = :businessId', { businessId }).getCount(),
+      this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId', { businessId }).select('COUNT(DISTINCT "bk"."customerId")', 'count').getRawOne().then(res => Number(res?.count || 0)),
       this.paymentRepo.createQueryBuilder('p')
-        .where('p.businessId = :businessId AND p.status = :s', { businessId, s: 'pagado' })
-        .select('SUM(p.amount)', 'total')
+        .leftJoin('p.booking', 'booking')
+        .where('"booking"."businessId" = :businessId', { businessId })
+        .select('SUM(CASE WHEN p.status = \'pagado\' THEN p.amount ELSE 0 END)', 'total')
         .addSelect('SUM(CASE WHEN p.status = \'pendiente\' THEN p.amount ELSE 0 END)', 'pending')
         .getRawOne(),
       this.bookingRepo.createQueryBuilder('bk')

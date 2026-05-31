@@ -29,13 +29,14 @@ export class BookingsController {
   findByDateRange(
     @Query('from') from: string,
     @Query('to') to: string,
+    @Query('businessId') businessId: string,
     @Req() req: any,
   ) {
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!from || !to || !dateRegex.test(from) || !dateRegex.test(to)) {
       throw new BadRequestException('Los parámetros from y to son obligatorios con formato YYYY-MM-DD');
     }
-    return this.bookingsService.findByDateRange(from, to, req.user);
+    return this.bookingsService.findByDateRange(from, to, req.user, businessId ? parseInt(businessId, 10) : undefined);
   }
 
   @Get('business/:businessId')

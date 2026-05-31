@@ -145,10 +145,7 @@ export class CustomersService {
     const updated = this.customerRepository.merge(customer, updateCustomerDto);
     const savedCustomer = await this.customerRepository.save(updated);
 
-    if (updateCustomerDto.name !== undefined || updateCustomerDto.surname !== undefined) {
-      const fullName = `${savedCustomer.name} ${savedCustomer.surname || ''}`.trim();
-      await this.paymentsService.updateClientNameForCustomer(savedCustomer.id, fullName);
-    }
+
     return savedCustomer;
   }
 

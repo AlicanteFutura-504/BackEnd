@@ -33,17 +33,6 @@ export class CreatePaymentDto {
   @IsEnum(PaymentType)
   type: PaymentType;
 
-  /** Nombre del cliente que realiza el pago. */
-  @ApiProperty({ example: 'María López' })
-  @IsString()
-  clientName: string;
-
-  /** Nombre de la empresa o local en el que se ejecuta el pago. */
-  @ApiProperty({ example: 'Peluquería Nova' })
-  @IsString()
-  businessName: string;
-
-  /** Importe del pago. */
   @ApiProperty({ example: 28.5 })
   @IsNumber()
   @Min(0, { message: 'El importe no puede ser negativo' })
@@ -52,10 +41,5 @@ export class CreatePaymentDto {
   @ApiProperty({ example: 1, required: false })
   @IsOptional()
   @IsNumber()
-  customerId?: number;
-
-  @ApiProperty({ example: 1, required: false })
-  @IsOptional()
-  @IsNumber()
-  businessId?: number;
+  bookingId?: number;
 }

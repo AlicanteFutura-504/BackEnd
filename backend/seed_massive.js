@@ -88,11 +88,10 @@ async function run() {
     let customerIds = [];
     queryValues = [];
     for (let i = 1; i <= NUM_CUSTOMERS; i++) {
-      const bId = faker.helpers.arrayElement(businessIds);
-      queryValues.push(`('${faker.person.firstName().replace(/'/g, "''")}', '${faker.person.lastName().replace(/'/g, "''")}', 'c${i}_${faker.string.alphanumeric(6)}_${faker.internet.email().replace(/'/g, "''")}', '${faker.phone.number()}', ${bId})`);
+      queryValues.push(`('${faker.person.firstName().replace(/'/g, "''")}', '${faker.person.lastName().replace(/'/g, "''")}', 'c${i}_${faker.string.alphanumeric(6)}_${faker.internet.email().replace(/'/g, "''")}', '${faker.phone.number()}')`);
       
       if (queryValues.length >= CHUNK_SIZE || i === NUM_CUSTOMERS) {
-        const query = `INSERT INTO customers (name, surname, email, phone, "businessId") VALUES ${queryValues.join(',')} RETURNING id;`;
+        const query = `INSERT INTO customers (name, surname, email, phone) VALUES ${queryValues.join(',')} RETURNING id;`;
         const res = await client.query(query);
         customerIds.push(...res.rows.map(r => r.id));
         queryValues = [];
@@ -103,7 +102,7 @@ async function run() {
     console.log(`Generando ${NUM_BOOKINGS} reservas y sus pagos correspondientes...`);
     let apptQueryValues = [];
     let bEntityQueryValues = [];
-    let paymentQueryValues = [];
+    let paymentData = [];
     const statuses = ['pending', 'confirmed', 'paid'];
     const services = ['Corte de pelo', 'Revisión general', 'Consulta inicial', 'Limpieza profunda', 'Mantenimiento'];
 
@@ -120,29 +119,32 @@ async function run() {
       apptQueryValues.push(`('${date}', '${time}', '${status}', ${cId}, ${bId}, '${serviceName}')`);
       bEntityQueryValues.push(`('${date}', '${time}', '${status}', ${cId}, ${bId}, '${serviceName}')`);
 
-      if (status === 'paid' || status === 'confirmed') {
-        paymentCount++;
-        const pStatus = status === 'paid' ? 'pagado' : 'pendiente';
-        const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'bizum']);
-        const amount = faker.number.int({ min: 10, max: 200 });
-        paymentQueryValues.push(`('${date}', '${pStatus}', '${pType}', 'Cliente Ficticio', ${cId}, 'Local Ficticio', ${bId}, ${amount})`);
-      }
+      paymentCount++;
+      const pStatus = status === 'paid' ? 'pagado' : 'pendiente';
+      const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'bizum']);
+      const amount = faker.number.int({ min: 10, max: 200 });
+      paymentData.push({ index: bEntityQueryValues.length - 1, date, pStatus, pType, amount });
 
       if (apptQueryValues.length >= CHUNK_SIZE || i === NUM_BOOKINGS) {
         const aQuery = `INSERT INTO appointment (date, time, status, "customerId", "businessId", "serviceName") VALUES ${apptQueryValues.join(',')} ON CONFLICT ("date", "time", "businessId") DO NOTHING;`;
         await client.query(aQuery);
         
-        const bQuery = `INSERT INTO booking_entity (date, time, status, "customerId", "businessId", "serviceName") VALUES ${bEntityQueryValues.join(',')};`;
-        await client.query(bQuery);
+        const bQuery = `INSERT INTO booking_entity (date, time, status, "customerId", "businessId", "serviceName") VALUES ${bEntityQueryValues.join(',')} RETURNING id;`;
+        const bRes = await client.query(bQuery);
+        const insertedBookingIds = bRes.rows.map(r => r.id);
 
-        if (paymentQueryValues.length > 0) {
-          const pQuery = `INSERT INTO payment (date, status, type, "clientName", "customerId", "businessName", "businessId", amount) VALUES ${paymentQueryValues.join(',')};`;
+        if (paymentData.length > 0) {
+          const paymentQueryValues = paymentData.map(p => {
+             const bookingId = insertedBookingIds[p.index];
+             return `('${p.date}', '${p.pStatus}', '${p.pType}', ${p.amount}, ${bookingId})`;
+          });
+          const pQuery = `INSERT INTO payment (date, status, type, amount, "bookingId") VALUES ${paymentQueryValues.join(',')};`;
           await client.query(pQuery);
         }
 
         apptQueryValues = [];
         bEntityQueryValues = [];
-        paymentQueryValues = [];
+        paymentData = [];
         console.log(` Insertadas ${i} reservas (con sus pagos)...`);
       }
     }

@@ -141,7 +141,7 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
       const model = this.genAI.getGenerativeModel({ 
         model: this.modelName,
         systemInstruction: systemInstruction,
-        tools: [{ functionDeclarations: [getBookingsDeclaration, createCustomerDeclaration, createBusinessDeclaration, createBookingDeclaration, createPaymentDeclaration] }]
+        tools: [{ functionDeclarations: [getBookingsDeclaration, createCustomerDeclaration, createBusinessDeclaration, createBookingDeclaration] }]
       });
 
       const history = (dto.history || []).map((msg) => ({
@@ -197,8 +197,7 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
             const newCustomer = await this.customersService.create({
               name,
               email,
-              phone,
-              businessId: finalBusinessId
+              phone
             });
 
             result = await chat.sendMessage([{
@@ -282,8 +281,7 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
                  name: customerName,
                  surname: customerSurname,
                  email: customerEmail,
-                 phone: customerPhone,
-                 businessId: finalBusinessId
+                 phone: customerPhone
                });
             }
 
@@ -313,55 +311,7 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
           }
           response = await result.response;
         }
-        else if (call.name === 'create_payment') {
-          if (user.username === 'root') {
-            result = await chat.sendMessage([{
-              functionResponse: {
-                name: 'create_payment',
-                response: { success: false, error: "Permiso denegado. El superadministrador no puede registrar pagos." }
-              }
-            }]);
-          } else {
-            const { clientName, amount, date, type, status, businessId } = call.args as any;
-            try {
-              let finalBusinessId = businessId;
-              if (!finalBusinessId) {
-                 if (user?.businessId) {
-                    finalBusinessId = user.businessId;
-                 } else if (userBusinesses.data.length > 0) {
-                    finalBusinessId = userBusinesses.data[0].id;
-                 }
-              }
 
-              const businessName = userBusinesses.data.find(b => b.id === finalBusinessId)?.nombre || 'Empresa Desconocida';
-
-              const newPayment = await this.paymentsService.create({
-                clientName,
-                amount: parseFloat(amount),
-                date,
-                type,
-                status,
-                businessName,
-                businessId: finalBusinessId
-              });
-
-              result = await chat.sendMessage([{
-                functionResponse: {
-                  name: 'create_payment',
-                  response: { success: true, payment: newPayment, message: "Pago registrado exitosamente" }
-                }
-              }]);
-            } catch (e: any) {
-              result = await chat.sendMessage([{
-                functionResponse: {
-                  name: 'create_payment',
-                  response: { success: false, error: e.message || "Error al registrar el pago" }
-                }
-              }]);
-            }
-          }
-          response = await result.response;
-        }
       }
       
       return {
