@@ -18,9 +18,14 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
-  // Permite peticiones desde el frontend (puerto 3001) hacia este backend
+  // Permite peticiones desde el frontend local en puertos 3000 y 3001,
+  // o en la URL indicada por la variable de entorno CORS_ORIGIN.
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+    : ['http://localhost:3001', 'http://localhost:3000'];
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3001',
+    origin: allowedOrigins,
   });
 
   // Aplica validación estricta de DTOs en todas las rutas
