@@ -114,8 +114,24 @@ async function run() {
     let paymentCount = 0;
 
     for (let i = 1; i <= NUM_BOOKINGS; i++) {
-      const cId = faker.helpers.arrayElement(customerIds);
-      const bId = faker.helpers.arrayElement(businessIds);
+      let cId, bId;
+
+      // Garantizar que todos los negocios tengan al menos una reserva
+      if (i <= businessIds.length) {
+        bId = businessIds[i - 1];
+        cId = faker.helpers.arrayElement(customerIds);
+      } 
+      // Garantizar que todos los clientes tengan al menos una reserva
+      else if (i <= businessIds.length + customerIds.length) {
+        cId = customerIds[i - 1 - businessIds.length];
+        bId = faker.helpers.arrayElement(businessIds);
+      } 
+      // Reservas restantes aleatorias
+      else {
+        cId = faker.helpers.arrayElement(customerIds);
+        bId = faker.helpers.arrayElement(businessIds);
+      }
+
       const status = faker.helpers.arrayElement(statuses);
       const date = faker.date.recent({ days: 60 }).toISOString().split('T')[0];
       const time = `${faker.number.int({ min: 8, max: 20 })}:00`;
