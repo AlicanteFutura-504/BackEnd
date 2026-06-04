@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { Usuario, UserRole } from './usuario.entity';
 import * as bcrypt from 'bcrypt';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
+import { Appointment } from '../appointments/appointment.entity';
 
 @Injectable()
 export class UsuariosService implements OnModuleInit {
@@ -128,6 +129,58 @@ export class UsuariosService implements OnModuleInit {
 
     Object.assign(usuario, dto);
     return this.usuariosRepository.save(usuario);
+  }
+
+  async findAllClients(page: number = 1, limit: number = 20, search: string = ''): Promise<{ data: Usuario[], total: number }> {
+    const query = this.usuariosRepository.createQueryBuilder('usuario')
+      .where('usuario.role = :role', { role: UserRole.CLIENT });
+
+    if (search) {
+      query.andWhere(
+        '(usuario.nombreCompleto ILIKE :search OR usuario.email ILIKE :search OR usuario.phone ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    const [data, total] = await query
+      .skip((page - 1) * limit)
+      .take(limit)
+      .orderBy('usuario.id', 'DESC')
+      .getManyAndCount();
+
+    return { data, total };
+  }
+
+  async findClientsByBusiness(businessId: number, page: number = 1, limit: number = 20, search: string = ''): Promise<{ data: Usuario[], total: number }> {
+    const query = this.usuariosRepository.createQueryBuilder('usuario')
+      .innerJoin('appointment', 'appointment', 'appointment."usuarioId" = usuario.id')
+      .where('appointment."businessId" = :businessId', { businessId })
+      .andWhere('usuario.role = :role', { role: UserRole.CLIENT });
+
+    if (search) {
+      query.andWhere(
+        '(usuario.nombreCompleto ILIKE :search OR usuario.email ILIKE :search OR usuario.phone ILIKE :search)',
+        { search: `%${search}%` }
+      );
+    }
+
+    // Usar subconsulta o agrupar para evitar duplicados si un cliente tiene múltiples citas
+    const [data, total] = await query
+      .select('usuario') // asegurarnos de seleccionar solo la entidad usuario
+      .distinct(true)    // evitar duplicados
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    return { data, total };
+  }
+
+  async remove(id: number): Promise<void> {
+    const usuario = await this.usuariosRepository.findOne({ where: { id } });
+    if (!usuario) {
+      throw new ConflictException('Usuario no encontrado');
+    }
+    await this.usuariosRepository.remove(usuario);
   }
 }
 

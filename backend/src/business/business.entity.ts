@@ -1,6 +1,6 @@
 import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, JoinColumn, OneToMany } from 'typeorm';
 import { Usuario } from '../usuarios/usuario.entity';
-import { Appointment } from '../appointments/appointment.entity';
+import { BookingEntity } from '../bookings/booking.entity';
 
 /**
  * Entidad 'Business'.
@@ -44,6 +44,6 @@ export class Business {
   businessUser: Usuario;
 
   /** Lista de reservas asociadas a esta empresa. */
-  @OneToMany(() => Appointment, (appointment) => appointment.business)
-  appointments: Appointment[];
+  @OneToMany(() => BookingEntity, (appointment) => appointment.businessId)
+  appointments: BookingEntity[];
 }

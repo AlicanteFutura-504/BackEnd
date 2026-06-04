@@ -30,7 +30,7 @@ async function run() {
 
   try {
     console.log('Limpiando base de datos (excepto root)...');
-    await client.query('TRUNCATE TABLE payment, appointment, booking_entity, customers, business CASCADE;');
+    await client.query('TRUNCATE TABLE payment, appointment, business CASCADE;');
     await client.query("DELETE FROM usuarios WHERE username != 'root';");
 
     console.log('Generando hash de contraseña "1234"...');
@@ -59,7 +59,8 @@ async function run() {
     for (let i = 1; i <= NUM_BUSINESSES; i++) {
       const adminId = faker.helpers.arrayElement(adminIds);
       const username = `local_${i}_${faker.string.alphanumeric(4)}`;
-      queryValues.push(`('${username}', '${faker.company.name().replace(/'/g, "''")}', NULL, 'b${i}_${faker.string.alphanumeric(6)}_${faker.internet.email().replace(/'/g, "''")}', '${passwordHash}', '${faker.image.avatar()}', 'business', ${adminId})`);
+      const fakeNif = `B${String(i).padStart(7, '0')}`;
+      queryValues.push(`('${username}', '${faker.company.name().replace(/'/g, "''")}', '${fakeNif}', 'b${i}_${faker.string.alphanumeric(6)}_${faker.internet.email().replace(/'/g, "''")}', '${passwordHash}', '${faker.image.avatar()}', 'business', ${adminId})`);
       
       if (queryValues.length >= CHUNK_SIZE || i === NUM_BUSINESSES) {
         const userQuery = `INSERT INTO usuarios (username, "nombreCompleto", dni, email, contrasena, "profilePicture", role) 
@@ -84,25 +85,29 @@ async function run() {
       }
     }
 
-    console.log(`Generando ${NUM_CUSTOMERS} clientes...`);
+    console.log(`Generando ${NUM_CUSTOMERS} clientes (como usuarios)...`);
     let customerIds = [];
     queryValues = [];
     for (let i = 1; i <= NUM_CUSTOMERS; i++) {
-      queryValues.push(`('${faker.person.firstName().replace(/'/g, "''")}', '${faker.person.lastName().replace(/'/g, "''")}', 'c${i}_${faker.string.alphanumeric(6)}_${faker.internet.email().replace(/'/g, "''")}', '${faker.phone.number()}')`);
+      const email = `c${i}_${faker.string.alphanumeric(6)}_${faker.internet.email().replace(/'/g, "''")}`;
+      const username = email.split('@')[0];
+      const nombreCompleto = `${faker.person.firstName().replace(/'/g, "''")} ${faker.person.lastName().replace(/'/g, "''")}`;
+      const phone = faker.phone.number();
+
+      const fakeDni = `${String(i).padStart(8, '0')}Z`;
+      queryValues.push(`('${username}', '${nombreCompleto}', '${fakeDni}', '${email}', '${passwordHash}', '${faker.image.avatar()}', 'client', '${phone}')`);
       
       if (queryValues.length >= CHUNK_SIZE || i === NUM_CUSTOMERS) {
-        const query = `INSERT INTO customers (name, surname, email, phone) VALUES ${queryValues.join(',')} RETURNING id;`;
+        const query = `INSERT INTO usuarios (username, "nombreCompleto", dni, email, contrasena, "profilePicture", role, phone) VALUES ${queryValues.join(',')} RETURNING id;`;
         const res = await client.query(query);
         customerIds.push(...res.rows.map(r => r.id));
         queryValues = [];
-        console.log(` Insertados ${i} clientes...`);
+        console.log(` Insertados ${i} clientes (usuarios)...`);
       }
     }
 
     console.log(`Generando ${NUM_BOOKINGS} reservas y sus pagos correspondientes...`);
-    let apptQueryValues = [];
     let bEntityQueryValues = [];
-    let paymentData = [];
     const statuses = ['pending', 'confirmed', 'paid'];
     const services = ['Corte de pelo', 'Revisión general', 'Consulta inicial', 'Limpieza profunda', 'Mantenimiento'];
 
@@ -116,35 +121,29 @@ async function run() {
       const time = `${faker.number.int({ min: 8, max: 20 })}:00`;
       const serviceName = faker.helpers.arrayElement(services);
 
-      apptQueryValues.push(`('${date}', '${time}', '${status}', ${cId}, ${bId}, '${serviceName}')`);
       bEntityQueryValues.push(`('${date}', '${time}', '${status}', ${cId}, ${bId}, '${serviceName}')`);
 
-      paymentCount++;
-      const pStatus = status === 'paid' ? 'pagado' : 'pendiente';
-      const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'bizum']);
-      const amount = faker.number.int({ min: 10, max: 200 });
-      paymentData.push({ index: bEntityQueryValues.length - 1, date, pStatus, pType, amount });
 
-      if (apptQueryValues.length >= CHUNK_SIZE || i === NUM_BOOKINGS) {
-        const aQuery = `INSERT INTO appointment (date, time, status, "customerId", "businessId", "serviceName") VALUES ${apptQueryValues.join(',')} ON CONFLICT ("date", "time", "businessId") DO NOTHING;`;
-        await client.query(aQuery);
-        
-        const bQuery = `INSERT INTO booking_entity (date, time, status, "customerId", "businessId", "serviceName") VALUES ${bEntityQueryValues.join(',')} RETURNING id;`;
+
+      if (bEntityQueryValues.length >= CHUNK_SIZE || i === NUM_BOOKINGS) {
+        const bQuery = `INSERT INTO appointment (date, time, status, "usuarioId", "businessId", "serviceName") VALUES ${bEntityQueryValues.join(',')} ON CONFLICT ("date", "time", "businessId") DO NOTHING RETURNING id;`;
         const bRes = await client.query(bQuery);
         const insertedBookingIds = bRes.rows.map(r => r.id);
 
-        if (paymentData.length > 0) {
-          const paymentQueryValues = paymentData.map(p => {
-             const bookingId = insertedBookingIds[p.index];
-             return `('${p.date}', '${p.pStatus}', '${p.pType}', ${p.amount}, ${bookingId})`;
+        if (insertedBookingIds.length > 0) {
+          const paymentQueryValues = insertedBookingIds.map(bookingId => {
+             const pStatus = faker.helpers.arrayElement(['pagado', 'pendiente']);
+             const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'bizum']);
+             const amount = faker.number.int({ min: 10, max: 200 });
+             const pDate = faker.date.recent({ days: 60 }).toISOString().split('T')[0];
+             paymentCount++;
+             return `('${pDate}', '${pStatus}', '${pType}', ${amount}, ${bookingId})`;
           });
           const pQuery = `INSERT INTO payment (date, status, type, amount, "bookingId") VALUES ${paymentQueryValues.join(',')};`;
           await client.query(pQuery);
         }
 
-        apptQueryValues = [];
         bEntityQueryValues = [];
-        paymentData = [];
         console.log(` Insertadas ${i} reservas (con sus pagos)...`);
       }
     }

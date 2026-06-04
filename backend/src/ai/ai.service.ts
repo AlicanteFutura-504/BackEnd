@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { GoogleGenerativeAI, FunctionDeclaration, SchemaType } from '@google/generative-ai';
 import { ChatRequestDto, ChatMessage } from './dto/chat-request.dto';
 import { BookingsService } from '../bookings/bookings.service';
-import { CustomersService } from '../customers/customers.service';
+import { UsuariosService } from '../usuarios/usuarios.service';
 import { BusinessService } from '../business/business.service';
 import { PaymentsService } from '../payments/payments.service';
 
@@ -15,7 +15,7 @@ export class AiService {
   constructor(
     private readonly configService: ConfigService,
     private readonly bookingsService: BookingsService,
-    private readonly customersService: CustomersService,
+    private readonly usuariosService: UsuariosService,
     private readonly businessService: BusinessService,
     private readonly paymentsService: PaymentsService
   ) {
@@ -194,10 +194,13 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
             }
 
             // Intentar crear al cliente
-            const newCustomer = await this.customersService.create({
-              name,
+            const newCustomer = await this.usuariosService.create({
+              username: email.split('@')[0],
+              nombreCompleto: name,
               email,
-              phone
+              phone,
+              contrasena: '1234',
+              role: 'client' as any
             });
 
             result = await chat.sendMessage([{
@@ -274,14 +277,15 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
                }
             }
             
-            // Comprobar si el cliente ya existe
-            let customer = await this.customersService.findByEmail(customerEmail);
+            let customer = await this.usuariosService.findByEmail(customerEmail);
             if (!customer) {
-               customer = await this.customersService.create({
-                 name: customerName,
-                 surname: customerSurname,
+               customer = await this.usuariosService.create({
+                 username: customerEmail.split('@')[0],
+                 nombreCompleto: `${customerName} ${customerSurname || ''}`.trim(),
                  email: customerEmail,
-                 phone: customerPhone
+                 phone: customerPhone,
+                 contrasena: '1234',
+                 role: 'client' as any
                });
             }
 
