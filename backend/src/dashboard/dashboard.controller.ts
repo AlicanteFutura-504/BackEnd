@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Req, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Param, Req, ForbiddenException, HttpException, HttpStatus } from '@nestjs/common';
 import { DashboardService } from './dashboard.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
@@ -10,7 +10,11 @@ export class DashboardController {
 
   @Get('summary')
   async getSummary(@Req() req: any) {
-    return this.dashboardService.getSummary(req.user);
+    try {
+      return await this.dashboardService.getSummary(req.user);
+    } catch (e: any) {
+      throw new HttpException({ message: e.message, stack: e.stack }, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
 
   @Get('business/:id')
