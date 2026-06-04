@@ -105,14 +105,14 @@ export class BookingsService {
     return { data, total };
   }
 
-  async findByCustomer(customerId: number, user: ReqUser): Promise<BookingEntity[]> {
+  async findByCustomer(usuarioId: number, user: ReqUser): Promise<BookingEntity[]> {
     const ids = await this.getAccessibleIds(user);
     if (ids === null) {
-      return this.bookingsRepository.find({ where: { customerId } });
+      return this.bookingsRepository.find({ where: { usuarioId } });
     }
     if (ids.length === 0) return [];
     return this.bookingsRepository.find({
-      where: { customerId, businessId: In(ids) },
+      where: { usuarioId, businessId: In(ids) },
     });
   }
 

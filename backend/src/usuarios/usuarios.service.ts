@@ -46,6 +46,7 @@ export class UsuariosService implements OnModuleInit {
     role: UserRole = UserRole.BUSINESS,
     nombreCompleto?: string,
     dni?: string,
+    phone?: string,
   ): Promise<Usuario> {
     const existing = await this.usuariosRepository.findOne({
       where: [{ username }, { email }, { dni: dni || 'N/A' }],
@@ -64,6 +65,7 @@ export class UsuariosService implements OnModuleInit {
       role,
       nombreCompleto,
       dni,
+      phone,
     });
 
     return this.usuariosRepository.save(nuevoUsuario);
@@ -75,8 +77,19 @@ export class UsuariosService implements OnModuleInit {
   async findByIdentifier(identifier: string): Promise<Usuario | null> {
     return this.usuariosRepository.findOne({
       where: [{ username: identifier }, { email: identifier }],
-      select: ['id', 'username', 'email', 'contrasena', 'role', 'nombreCompleto', 'dni', 'profilePicture'], // Añadimos campos necesarios
+      select: ['id', 'username', 'email', 'contrasena', 'role', 'nombreCompleto', 'dni', 'phone', 'profilePicture'], // Añadimos campos necesarios
     });
+  }
+
+  async findByEmail(email: string): Promise<Usuario | null> {
+    return this.usuariosRepository.findOne({
+      where: { email },
+    });
+  }
+
+  async create(data: Partial<Usuario>): Promise<Usuario> {
+    const nuevoUsuario = this.usuariosRepository.create(data);
+    return this.usuariosRepository.save(nuevoUsuario);
   }
 
   /**

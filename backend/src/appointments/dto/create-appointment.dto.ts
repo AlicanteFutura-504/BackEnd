@@ -35,7 +35,7 @@ export class CreateAppointmentDto {
   /** El ID del cliente tiene que enviarse como número entero. */
   @ApiProperty({ example: 1 })
   @IsInt()
-  customerId: number;
+  usuarioId: number;
 
   /** El ID del negocio también debe ser un número entero. */
   @ApiProperty({ example: 1 })

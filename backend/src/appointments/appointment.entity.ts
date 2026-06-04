@@ -40,11 +40,11 @@ export class Appointment {
 
   /** ID del cliente (Columna física). */
   @Column()
-  customerId: number;
+  usuarioId: number;
 
   /** Relación con el Cliente. */
   @ManyToOne(() => Customer, (customer) => customer.appointments, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'customerId' })
+  @JoinColumn({ name: 'usuarioId' })
   customer: Customer;
 
   /** ID del negocio (Columna física). */

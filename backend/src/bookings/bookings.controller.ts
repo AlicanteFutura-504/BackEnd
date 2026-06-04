@@ -56,9 +56,9 @@ export class BookingsController {
     );
   }
 
-  @Get('customer/:customerId')
-  findByCustomer(@Param('customerId') customerId: string, @Req() req: any) {
-    return this.bookingsService.findByCustomer(+customerId, req.user);
+  @Get('customer/:usuarioId')
+  findByCustomer(@Param('usuarioId') usuarioId: string, @Req() req: any) {
+    return this.bookingsService.findByCustomer(+usuarioId, req.user);
   }
 
   @Post()

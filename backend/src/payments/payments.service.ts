@@ -49,7 +49,7 @@ export class PaymentsService {
 
     const query = this.paymentsRepository.createQueryBuilder('payment')
       .leftJoinAndSelect('payment.booking', 'booking')
-      .leftJoinAndMapOne('payment.customer', Customer, 'customer', '"customer"."id" = "booking"."customerId"');
+      .leftJoinAndMapOne('payment.customer', Customer, 'customer', '"customer"."id" = "booking"."usuarioId"');
 
     if (ids !== null) {
       query.where('"booking"."businessId" IN (:...ids)', { ids });
@@ -76,7 +76,7 @@ export class PaymentsService {
   async findOne(id: number) {
     const payment = await this.paymentsRepository.createQueryBuilder('payment')
       .leftJoinAndSelect('payment.booking', 'booking')
-      .leftJoinAndMapOne('payment.customer', Customer, 'customer', '"customer"."id" = "booking"."customerId"')
+      .leftJoinAndMapOne('payment.customer', Customer, 'customer', '"customer"."id" = "booking"."usuarioId"')
       .where('payment.id = :id', { id })
       .getOne();
     if (!payment) throw new NotFoundException(`No existe el pago con id ${id}`);

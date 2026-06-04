@@ -289,7 +289,7 @@ REGLA ESTRICTA DE COMPORTAMIENTO:
               date,
               time,
               status: 'pending',
-              customerId: customer.id,
+              usuarioId: customer.id,
               businessId: finalBusinessId,
               serviceName: service
             });

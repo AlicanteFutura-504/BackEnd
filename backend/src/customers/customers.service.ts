@@ -53,10 +53,10 @@ export class CustomersService {
     const query = this.customerRepository.createQueryBuilder('customer');
     if (ids !== null) {
       const bookingRepo = this.dataSource.getRepository(BookingEntity);
-      const bookings = await bookingRepo.find({ where: { businessId: In(ids) }, select: ['customerId'] });
+      const bookings = await bookingRepo.find({ where: { businessId: In(ids) }, select: ['usuarioId'] });
       
       const relatedCustomerIds = new Set<number>();
-      bookings.forEach(b => { if (b.customerId) relatedCustomerIds.add(b.customerId); });
+      bookings.forEach(b => { if (b.usuarioId) relatedCustomerIds.add(b.usuarioId); });
 
       if (relatedCustomerIds.size === 0) {
         return { data: [], total: 0 };
@@ -95,10 +95,10 @@ export class CustomersService {
 
     // Obtener clientes asociados a través de reservas
     const bookingRepo = this.dataSource.getRepository(BookingEntity);
-    const bookings = await bookingRepo.find({ where: { businessId }, select: ['customerId'] });
+    const bookings = await bookingRepo.find({ where: { businessId }, select: ['usuarioId'] });
 
     const relatedCustomerIds = new Set<number>();
-    bookings.forEach(b => { if (b.customerId) relatedCustomerIds.add(b.customerId); });
+    bookings.forEach(b => { if (b.usuarioId) relatedCustomerIds.add(b.usuarioId); });
 
     if (relatedCustomerIds.size === 0) {
       return { data: [], total: 0 };

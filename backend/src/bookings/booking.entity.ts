@@ -24,7 +24,7 @@ export class BookingEntity {
   status: string;
 
   @Column()
-  customerId: number;
+  usuarioId: number;
 
   @Column()
   businessId: number;
