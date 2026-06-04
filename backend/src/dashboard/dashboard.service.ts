@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Business } from '../business/business.entity';
 import { BookingEntity } from '../bookings/booking.entity';
-import { Customer } from '../customers/customer.entity';
+import { Usuario } from '../usuarios/usuario.entity';
 import { Payment } from '../payments/payments.entity';
 import { UserRole } from '../usuarios/usuario.entity';
 
@@ -12,14 +12,14 @@ export class DashboardService {
   constructor(
     @InjectRepository(Business) private businessRepo: Repository<Business>,
     @InjectRepository(BookingEntity) private bookingRepo: Repository<BookingEntity>,
-    @InjectRepository(Customer) private customerRepo: Repository<Customer>,
+    @InjectRepository(Usuario) private usuarioRepo: Repository<Usuario>,
     @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
   ) {}
 
   async getSummary(user: any) {
     let businessQuery = this.businessRepo.createQueryBuilder('b');
     let bookingQuery = this.bookingRepo.createQueryBuilder('bk');
-    let customerQuery = this.customerRepo.createQueryBuilder('c');
+    let customerQuery = this.usuarioRepo.createQueryBuilder('c').where("c.role = 'client'");
     let paymentQuery = this.paymentRepo.createQueryBuilder('p').leftJoin('p.booking', 'booking');
 
     // Apply tenancy logic if not root
@@ -48,7 +48,7 @@ export class DashboardService {
       bookingQuery.clone().andWhere("bk.status = 'pending'").getCount(),
       user.role === UserRole.SUPERADMIN 
         ? customerQuery.getCount() 
-        : bookingQuery.clone().select('COUNT(DISTINCT bk.customerId)', 'count').getRawOne().then(res => Number(res?.count || 0)),
+        : bookingQuery.clone().select('COUNT(DISTINCT "bk"."usuarioId")', 'count').getRawOne().then(res => Number(res?.count || 0)),
       paymentQuery.clone()
         .andWhere("p.status = 'pagado'")
         .select("SUM(p.amount)", "total")
@@ -101,7 +101,11 @@ export class DashboardService {
     const [totalBookings, pendingBookings, totalCustomers, earningsResult, latestBookings] = await Promise.all([
       this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId', { businessId }).getCount(),
       this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId AND bk.status = :s', { businessId, s: 'pending' }).getCount(),
+<<<<<<< HEAD
       this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId', { businessId }).select('COUNT(DISTINCT bk.customerId)', 'count').getRawOne().then(res => Number(res?.count || 0)),
+=======
+      this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId', { businessId }).select('COUNT(DISTINCT "bk"."usuarioId")', 'count').getRawOne().then(res => Number(res?.count || 0)),
+>>>>>>> ADD-vista-de-cliente
       this.paymentRepo.createQueryBuilder('p')
         .leftJoin('p.booking', 'booking')
         .where('"booking"."businessId" = :businessId', { businessId })

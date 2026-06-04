@@ -2,11 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
-import { AppointmentsModule } from './appointments/appointments.module';
+
 import { PaymentsModule } from './payments/payments.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { BusinessModule } from './business/business.module';
-import { CustomersModule } from './customers/customers.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { BookingsModule } from './bookings/bookings.module';
@@ -37,11 +36,9 @@ import { DashboardModule } from './dashboard/dashboard.module';
         };
       },
     }),
-    AppointmentsModule,
     PaymentsModule,
     UsuariosModule,
     BusinessModule,
-    CustomersModule,
     AuthModule,
     BookingsModule,
     AiModule,

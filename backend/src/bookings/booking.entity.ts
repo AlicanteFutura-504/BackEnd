@@ -6,7 +6,8 @@ export enum BookingStatus {
   PAID = 'paid',
 }
 
-@Entity()
+@Entity('appointment')
+@Unique(['date', 'time', 'businessId'])
 export class BookingEntity {
   @PrimaryGeneratedColumn()
   id: number;
@@ -24,7 +25,7 @@ export class BookingEntity {
   status: string;
 
   @Column()
-  customerId: number;
+  usuarioId: number;
 
   @Column()
   businessId: number;

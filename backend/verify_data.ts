@@ -2,12 +2,11 @@ import { DataSource } from 'typeorm';
 import * as dotenv from 'dotenv';
 import { Usuario } from './src/usuarios/usuario.entity';
 import { Business } from './src/business/business.entity';
-import { Customer } from './src/customers/customer.entity';
 import { BookingEntity as Booking } from './src/bookings/booking.entity';
 
 dotenv.config();
 
-const entities = [Usuario, Business, Customer, Booking];
+const entities = [Usuario, Business, Booking];
 
 async function verify() {
   const pgDataSource = new DataSource({
@@ -31,10 +30,7 @@ async function verify() {
       const businesses = await repo.find();
       console.log('Businesses:', businesses);
     }
-    if (entity.name === 'Customer') {
-      const customers = await repo.find();
-      console.log('Customers (id, businessId):', customers);
-    }
+
     if (entity.name === 'BookingEntity') {
         const bookings = await repo.find();
         console.log('Bookings (id, businessId):', bookings);

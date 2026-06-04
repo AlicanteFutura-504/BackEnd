@@ -56,8 +56,10 @@ export class BusinessService {
   ): Promise<{ data: Business[], total: number }> {
     const query = this.businessRepository.createQueryBuilder('business');
     
-    if (role === UserRole.SUPERADMIN) {
-      query.leftJoinAndSelect('business.usuario', 'usuario');
+    if (role === UserRole.SUPERADMIN || role === UserRole.CLIENT) {
+      if (role === UserRole.SUPERADMIN) {
+        query.leftJoinAndSelect('business.usuario', 'usuario');
+      }
     } else if (role === UserRole.ADMIN) {
       query.where('business.usuarioId = :userId', { userId });
     } else if (role === UserRole.BUSINESS) {
@@ -108,8 +110,8 @@ export class BusinessService {
   async findOne(id: number, userId: number, role: UserRole, username?: string): Promise<Business> {
     const where: any = { id };
     
-    // Si NO es SUPERADMIN, aplicamos las reglas de tenencia
-    if (role !== UserRole.SUPERADMIN) {
+    // Si NO es SUPERADMIN o CLIENT, aplicamos las reglas de tenencia
+    if (role !== UserRole.SUPERADMIN && role !== UserRole.CLIENT) {
       if (role === UserRole.ADMIN) {
         where.usuarioId = userId;
       } else if (role === UserRole.BUSINESS) {

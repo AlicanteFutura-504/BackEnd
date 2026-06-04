@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Patch, Param, ParseIntPipe, Req } from '@nestjs/common';
+import { Controller, Post, Body, Patch, Param, ParseIntPipe, Req, Get, Query, Delete } from '@nestjs/common';
 import { UsuariosService } from './usuarios.service';
 import { RegisterAdminDto } from './dto/register-admin.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
@@ -41,5 +41,59 @@ export class UsuariosController {
     return this.usuariosService.update(id, dto);
   }
 
+  @Get('clients')
+  @ApiOperation({ summary: 'Obtener todos los clientes' })
+  async getClients(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.usuariosService.findAllClients(
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      search || ''
+    );
+  }
 
+  @Get('clients/business/:businessId')
+  @ApiOperation({ summary: 'Obtener los clientes de un negocio' })
+  async getClientsByBusiness(
+    @Param('businessId', ParseIntPipe) businessId: number,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+  ) {
+    return this.usuariosService.findClientsByBusiness(
+      businessId,
+      page ? parseInt(page, 10) : 1,
+      limit ? parseInt(limit, 10) : 20,
+      search || ''
+    );
+  }
+
+  @Get('by-email/:email')
+  @ApiOperation({ summary: 'Obtener usuario por email' })
+  async getByEmail(@Param('email') email: string) {
+    return this.usuariosService.findByEmail(email);
+  }
+
+  @Post('clients')
+  @ApiOperation({ summary: 'Crear un nuevo cliente' })
+  async createClient(@Body() dto: UpdateUsuarioDto) {
+    return this.usuariosService.crearUsuario(
+      dto.username || `c_${Date.now()}`,
+      dto.email!,
+      dto.contrasena || '1234',
+      UserRole.CLIENT,
+      dto.nombreCompleto,
+      dto.dni
+    );
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Eliminar un usuario' })
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return this.usuariosService.remove(id);
+  }
 }

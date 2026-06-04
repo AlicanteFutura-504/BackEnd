@@ -8,6 +8,7 @@ export enum UserRole {
   SUPERADMIN = 'superadmin', // Desarrolladores / Dueños del SaaS
   ADMIN = 'admin',           // Jefe / Empresario
   BUSINESS = 'business',     // Empresa (local creado por el admin)
+  CLIENT = 'client',         // Cliente que hace reservas
 }
 
 /**
@@ -35,6 +36,10 @@ export class Usuario {
   /** Correo electrónico único. */
   @Column({ unique: true })
   email: string;
+
+  /** Teléfono del usuario. */
+  @Column({ nullable: true })
+  phone: string;
 
   /** Contraseña almacenada en formato hash (bcrypt). */
   @Column({ select: false }) // Por seguridad, no se devuelve en consultas por defecto
