@@ -87,8 +87,7 @@ export class UsuariosController {
       dto.contrasena || '1234',
       UserRole.CLIENT,
       dto.nombreCompleto,
-      dto.dni,
-      dto.phone
+      dto.dni
     );
   }
 

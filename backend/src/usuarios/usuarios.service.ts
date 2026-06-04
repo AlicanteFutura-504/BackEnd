@@ -4,7 +4,6 @@ import { Repository } from 'typeorm';
 import { Usuario, UserRole } from './usuario.entity';
 import * as bcrypt from 'bcrypt';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
-import { Appointment } from '../appointments/appointment.entity';
 
 @Injectable()
 export class UsuariosService implements OnModuleInit {
