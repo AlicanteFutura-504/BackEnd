@@ -26,12 +26,12 @@ export class DashboardService {
     if (user.role !== UserRole.SUPERADMIN) {
       const bSubQuery = this.businessRepo.createQueryBuilder('bs')
         .select('bs.id')
-        .where(user.role === UserRole.ADMIN ? 'bs.usuarioId = :userId' : 'bs.businessUserId = :userId');
+        .where(user.role === UserRole.ADMIN ? '"bs"."usuarioId" = :userId' : '"bs"."businessUserId" = :userId');
 
-      businessQuery.where(user.role === UserRole.ADMIN ? 'b.usuarioId = :userId' : 'b.businessUserId = :userId', { userId: user.userId });
+      businessQuery.where(user.role === UserRole.ADMIN ? '"b"."usuarioId" = :userId' : '"b"."businessUserId" = :userId', { userId: user.userId });
       
-      bookingQuery.where(`bk.businessId IN (${bSubQuery.getQuery()})`, { userId: user.userId });
-      paymentQuery.where(`booking.businessId IN (${bSubQuery.getQuery()})`, { userId: user.userId });
+      bookingQuery.where(`"bk"."businessId" IN (${bSubQuery.getQuery()})`, { userId: user.userId });
+      paymentQuery.where(`"booking"."businessId" IN (${bSubQuery.getQuery()})`, { userId: user.userId });
     }
 
     // Run all count queries in parallel for maximum performance
@@ -90,7 +90,7 @@ export class DashboardService {
   async getBusinessSummary(businessId: number, user: any) {
     // Verify access: superadmin sees all, admin sees their own, business sees theirs
     if (user.role !== 'superadmin') {
-      const field = user.role === 'admin' ? 'usuarioId' : 'businessUserId';
+      const field = user.role === 'admin' ? '"usuarioId"' : '"businessUserId"';
       const business = await this.businessRepo
         .createQueryBuilder('b')
         .where(`b.id = :businessId AND b.${field} = :userId`, { businessId, userId: user.userId })
