@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, BadRequestException, Req } from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { BookingEntity } from './booking.entity';
+import { CreateBookingDto } from './dto/create-booking.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('bookings')
@@ -62,14 +63,14 @@ export class BookingsController {
   }
 
   @Post()
-  create(@Body() createBookingDto: Partial<BookingEntity>) {
+  create(@Body() createBookingDto: CreateBookingDto) {
     return this.bookingsService.create(createBookingDto);
   }
 
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateBookingDto: Partial<BookingEntity>,
+    @Body() updateBookingDto: CreateBookingDto,
     @Req() req: any,
   ) {
     return this.bookingsService.update(id, updateBookingDto, req.user);
