@@ -15,7 +15,7 @@ function generateUserSense(role) {
   const lastName = faker.person.lastName();
   const nombreCompleto = `${firstName} ${lastName}`;
   const username = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`.replace(/\s+/g, '') + '_' + faker.string.alphanumeric(4);
-  const email = `${username}@${role === 'admin' ? 'empresa' : 'cliente'}.com`;
+  const email = `${username}@${role === 'host' ? 'anfitrion' : 'huesped'}.com`;
   const phone = faker.phone.number('+34 ### ### ###');
   const profilePicture = faker.image.avatar();
   
@@ -42,20 +42,20 @@ async function run() {
 
   try {
     console.log('Limpiando base de datos (excepto root)...');
-    await client.query('TRUNCATE TABLE payment, appointment, business CASCADE;');
+    await client.query('TRUNCATE TABLE payment, booking, property CASCADE;');
     await client.query("DELETE FROM usuarios WHERE username != 'root';");
 
     console.log('Generando hash de contraseña "1234"...');
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('1234', salt);
 
-    console.log(`Generando ${NUM_ADMINS} empresarios (admins)...`);
+    console.log(`Generando ${NUM_ADMINS} anfitriones (hosts)...`);
     let adminIds = [];
     let queryValues = [];
     for (let i = 1; i <= NUM_ADMINS; i++) {
-      const u = generateUserSense('admin');
+      const u = generateUserSense('host');
       const dni = `${String(i).padStart(8, '0')}X`;
-      queryValues.push(`('${u.username}', '${u.nombreCompleto.replace(/'/g, "''")}', '${dni}', '${u.email}', '${passwordHash}', '${u.profilePicture}', 'admin', '${u.phone}')`);
+      queryValues.push(`('${u.username}', '${u.nombreCompleto.replace(/'/g, "''")}', '${dni}', '${u.email}', '${passwordHash}', '${u.profilePicture}', 'host', '${u.phone}')`);
       
       if (queryValues.length >= CHUNK_SIZE || i === NUM_ADMINS) {
         const query = `INSERT INTO usuarios (username, "nombreCompleto", dni, email, contrasena, "profilePicture", role, phone) VALUES ${queryValues.join(',')} RETURNING id;`;
@@ -66,19 +66,24 @@ async function run() {
       }
     }
 
-    console.log(`Generando ${NUM_BUSINESSES} negocios...`);
+    console.log(`Generando ${NUM_BUSINESSES} propiedades...`);
     let businessIds = [];
     queryValues = [];
     for (let i = 1; i <= NUM_BUSINESSES; i++) {
       const adminId = faker.helpers.arrayElement(adminIds);
-      const bName = faker.company.name().replace(/'/g, "''");
+      const bName = (faker.location.streetAddress() + ' Apartment').replace(/'/g, "''");
       const bDir = faker.location.streetAddress().replace(/'/g, "''");
       const bPhone = faker.phone.number('+34 ### ### ###');
+      const desc = faker.lorem.paragraph().replace(/'/g, "''");
+      const price = faker.number.int({ min: 40, max: 300 });
+      const maxGuests = faker.number.int({ min: 1, max: 8 });
+      const amenities = JSON.stringify(['Wifi', 'Cocina', 'TV', 'Aire acondicionado']).replace(/'/g, "''");
+      const images = JSON.stringify([faker.image.urlLoremFlickr({ category: 'apartment' })]).replace(/'/g, "''");
       
-      queryValues.push(`('${bName}', '${bDir}', '${bPhone}', ${adminId})`);
+      queryValues.push(`('${bName}', '${bDir}', '${bPhone}', ${adminId}, '${desc}', ${price}, ${maxGuests}, '${amenities}', '${images}')`);
       
       if (queryValues.length >= CHUNK_SIZE || i === NUM_BUSINESSES) {
-        const bQuery = `INSERT INTO business (nombre, direccion, telefono, "usuarioId") VALUES ${queryValues.join(',')} RETURNING id;`;
+        const bQuery = `INSERT INTO property (nombre, direccion, telefono, "usuarioId", description, "pricePerNight", "maxGuests", amenities, images) VALUES ${queryValues.join(',')} RETURNING id;`;
         const bRes = await client.query(bQuery);
         businessIds.push(...bRes.rows.map(r => r.id));
         queryValues = [];
@@ -90,9 +95,9 @@ async function run() {
     let customerIds = [];
     queryValues = [];
     for (let i = 1; i <= NUM_CUSTOMERS; i++) {
-      const u = generateUserSense('client');
+      const u = generateUserSense('guest');
       const fakeDni = `${String(i).padStart(8, '0')}Y`;
-      queryValues.push(`('${u.username}', '${u.nombreCompleto.replace(/'/g, "''")}', '${fakeDni}', '${u.email}', '${passwordHash}', '${u.profilePicture}', 'client', '${u.phone}')`);
+      queryValues.push(`('${u.username}', '${u.nombreCompleto.replace(/'/g, "''")}', '${fakeDni}', '${u.email}', '${passwordHash}', '${u.profilePicture}', 'guest', '${u.phone}')`);
       
       if (queryValues.length >= CHUNK_SIZE || i === NUM_CUSTOMERS) {
         const query = `INSERT INTO usuarios (username, "nombreCompleto", dni, email, contrasena, "profilePicture", role, phone) VALUES ${queryValues.join(',')} RETURNING id;`;
@@ -103,9 +108,9 @@ async function run() {
       }
     }
 
-    console.log(`Generando ${NUM_BOOKINGS} reservas y sus pagos correspondientes...`);
+    console.log(`Generando ${NUM_BOOKINGS} reservas vacacionales y sus pagos correspondientes...`);
     let bEntityQueryValues = [];
-    const statuses = ['pending', 'confirmed', 'paid', 'cancelled'];
+    const statuses = ['pending', 'confirmed', 'modified', 'cancelled'];
     const services = ['Corte de pelo', 'Revisión general', 'Consulta inicial', 'Limpieza profunda', 'Mantenimiento'];
 
     let paymentCount = 0;
@@ -115,14 +120,18 @@ async function run() {
       let bId = faker.helpers.arrayElement(businessIds);
 
       const status = faker.helpers.arrayElement(statuses);
-      const date = faker.date.recent({ days: 60 }).toISOString().split('T')[0];
-      const time = `${faker.number.int({ min: 8, max: 20 }).toString().padStart(2, '0')}:00`;
-      const serviceName = faker.helpers.arrayElement(services);
+      
+      const checkInDateObj = faker.date.recent({ days: 60 });
+      const checkInDate = checkInDateObj.toISOString().split('T')[0];
+      const duration = faker.number.int({ min: 1, max: 7 });
+      const checkOutDateObj = new Date(checkInDateObj);
+      checkOutDateObj.setDate(checkOutDateObj.getDate() + duration);
+      const checkOutDate = checkOutDateObj.toISOString().split('T')[0];
 
-      bEntityQueryValues.push(`('${date}', '${time}', '${status}', ${cId}, ${bId}, '${serviceName}')`);
+      bEntityQueryValues.push(`('${checkInDate}', '${checkOutDate}', '${status}', ${cId}, ${bId})`);
 
       if (bEntityQueryValues.length >= CHUNK_SIZE || i === NUM_BOOKINGS) {
-        const bQuery = `INSERT INTO appointment (date, time, status, "usuarioId", "businessId", "serviceName") VALUES ${bEntityQueryValues.join(',')} ON CONFLICT DO NOTHING RETURNING id;`;
+        const bQuery = `INSERT INTO booking ("checkInDate", "checkOutDate", status, "usuarioId", "propertyId") VALUES ${bEntityQueryValues.join(',')} RETURNING id;`;
         const bRes = await client.query(bQuery);
         const insertedBookingIds = bRes.rows.map(r => r.id);
 
@@ -132,8 +141,8 @@ async function run() {
              // pero podemos hacer un random simple o usar un estado basico.
              // Como es stress testing, simplificamos el pago:
              const pStatus = faker.helpers.arrayElement(['pagado', 'pendiente']);
-             const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'bizum']);
-             const amount = faker.number.int({ min: 10, max: 200 });
+             const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'transferencia']);
+             const amount = faker.number.int({ min: 100, max: 1500 });
              const pDate = faker.date.recent({ days: 60 }).toISOString().split('T')[0];
              paymentCount++;
              return `('${pDate}', '${pStatus}', '${pType}', ${amount}, ${bookingId})`;
@@ -148,10 +157,10 @@ async function run() {
     }
 
     console.log(`\n¡Stress Test Seeding completado con éxito!`);
-    console.log(`- Empresarios: ${NUM_ADMINS}`);
-    console.log(`- Negocios: ${NUM_BUSINESSES}`);
-    console.log(`- Clientes: ${NUM_CUSTOMERS}`);
-    console.log(`- Citas: ${NUM_BOOKINGS}`);
+    console.log(`- Anfitriones: ${NUM_ADMINS}`);
+    console.log(`- Propiedades: ${NUM_BUSINESSES}`);
+    console.log(`- Huéspedes: ${NUM_CUSTOMERS}`);
+    console.log(`- Reservas: ${NUM_BOOKINGS}`);
     console.log(`- Pagos insertados: ~${paymentCount}`);
 
   } catch (error) {

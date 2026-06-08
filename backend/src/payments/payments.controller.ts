@@ -17,14 +17,14 @@ export class PaymentsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
-    @Query('businessId') businessId?: string
+    @Query('propertyId') propertyId?: string
   ) {
     return this.paymentsService.findAll(
       req.user,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
       search || '',
-      businessId
+      propertyId
     );
   }
 

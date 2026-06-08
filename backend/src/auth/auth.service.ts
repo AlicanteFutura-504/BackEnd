@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Business } from '../business/business.entity';
+import { Property } from '../business/business.entity';
 import { UserRole } from '../usuarios/usuario.entity';
 
 @Injectable()
@@ -13,8 +13,8 @@ export class AuthService {
   constructor(
     private readonly usuariosService: UsuariosService,
     private readonly jwtService: JwtService,
-    @InjectRepository(Business)
-    private readonly businessRepository: Repository<Business>,
+    @InjectRepository(Property)
+    private readonly propertyRepository: Repository<Property>,
   ) {}
 
   async login(loginDto: LoginDto) {
@@ -32,20 +32,20 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales incorrectas');
     }
 
-    // Para usuarios con rol BUSINESS, buscamos el negocio asociado y lo metemos en el token
-    let businessId: number | null = null;
-    if (user.role === UserRole.BUSINESS) {
-      const business = await this.businessRepository.findOne({
-        where: { businessUserId: user.id },
+    // Para usuarios con rol HOST, buscamos la propiedad (opcional, en esta fase)
+    let propertyId: number | null = null;
+    if (user.role === UserRole.HOST) {
+      const property = await this.propertyRepository.findOne({
+        where: { usuarioId: user.id },
       });
-      businessId = business?.id ?? null;
+      propertyId = property?.id ?? null;
     }
 
     const payload = {
       sub: user.id,
       username: user.username,
       role: user.role,
-      businessId,
+      propertyId,
     };
 
     return {
@@ -58,7 +58,7 @@ export class AuthService {
         nombreCompleto: user.nombreCompleto,
         dni: user.dni,
         profilePicture: user.profilePicture,
-        businessId, // el frontend lo necesita para redirección y filtros
+        propertyId, // el frontend lo necesita para redirección y filtros
       },
     };
   }

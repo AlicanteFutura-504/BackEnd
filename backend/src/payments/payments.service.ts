@@ -4,14 +4,14 @@ import { In, Repository } from 'typeorm';
 import { Payment } from './payments.entity';
 import { CreatePaymentDto } from './dto/create-payments.dto';
 import { UpdatePaymentDto } from './dto/update-payments.dto';
-import { Business } from '../business/business.entity';
+import { Property } from '../business/business.entity';
 import { Usuario } from '../usuarios/usuario.entity';
 
 interface ReqUser {
   userId: number;
   username: string;
   role: string;
-  businessId?: number | null;
+  propertyId?: number | null;
 }
 
 @Injectable()
@@ -19,22 +19,21 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentsRepository: Repository<Payment>,
-    @InjectRepository(Business)
-    private readonly businessRepository: Repository<Business>,
+    @InjectRepository(Property)
+    private readonly propertyRepository: Repository<Property>,
   ) {}
 
   private async getAccessibleIds(user: any): Promise<number[] | null> {
-    if (user.role === 'superadmin') return null;
+    if (user.role === 'superadmin' || user.role === 'admin') return null;
 
-    const whereCondition = user.role === 'admin' 
-      ? { usuarioId: user.userId } 
-      : { businessUserId: user.userId };
-
-    const businesses = await this.businessRepository.find({
-      where: whereCondition,
-      select: ['id'],
-    });
-    return businesses.map((b) => b.id);
+    if (user.role === 'host') {
+      const properties = await this.propertyRepository.find({
+        where: { usuarioId: user.userId },
+        select: ['id'],
+      });
+      return properties.map((b) => b.id);
+    }
+    return [];
   }
 
   async findAll(
@@ -52,14 +51,14 @@ export class PaymentsService {
       .leftJoinAndMapOne('payment.customer', Usuario, 'customer', '"customer"."id" = "booking"."usuarioId"');
 
     if (ids !== null) {
-      query.where('"booking"."businessId" IN (:...ids)', { ids });
+      query.where('"booking"."propertyId" IN (:...ids)', { ids });
     }
 
     if (businessId) {
       if (ids !== null) {
-        query.andWhere('"booking"."businessId" = :bId', { bId: parseInt(businessId, 10) });
+        query.andWhere('"booking"."propertyId" = :bId', { bId: parseInt(businessId, 10) });
       } else {
-        query.where('"booking"."businessId" = :bId', { bId: parseInt(businessId, 10) });
+        query.where('"booking"."propertyId" = :bId', { bId: parseInt(businessId, 10) });
       }
     }
 
@@ -92,7 +91,7 @@ export class PaymentsService {
     const payment = await this.findOne(id);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && payment.booking?.businessId && !ids.includes(payment.booking.businessId)) {
+    if (ids !== null && payment.booking?.propertyId && !ids.includes(payment.booking.propertyId)) {
       throw new ForbiddenException('No tienes permiso para modificar este pago');
     }
 
@@ -104,7 +103,7 @@ export class PaymentsService {
     const payment = await this.findOne(id);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && payment.booking?.businessId && !ids.includes(payment.booking.businessId)) {
+    if (ids !== null && payment.booking?.propertyId && !ids.includes(payment.booking.propertyId)) {
       throw new ForbiddenException('No tienes permiso para eliminar este pago');
     }
 

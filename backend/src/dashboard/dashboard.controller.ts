@@ -17,13 +17,13 @@ export class DashboardController {
     }
   }
 
-  @Get('business/:id')
+  @Get('property/:id')
   async getBusinessSummary(@Param('id') id: string, @Req() req: any) {
     try {
       return await this.dashboardService.getBusinessSummary(+id, req.user);
     } catch (e) {
       console.error("Error in getBusinessSummary:", e);
-      throw new ForbiddenException('No tienes acceso a este negocio');
+      throw new ForbiddenException('No tienes acceso a esta propiedad');
     }
   }
 }

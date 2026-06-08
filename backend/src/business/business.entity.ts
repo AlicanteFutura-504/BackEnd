@@ -3,12 +3,12 @@ import { Usuario } from '../usuarios/usuario.entity';
 import { BookingEntity } from '../bookings/booking.entity';
 
 /**
- * Entidad 'Business'.
- * Representa la tabla 'business' en la base de datos SQLite.
- * Almacena la información de las empresas pertenecientes a los usuarios.
+ * Entidad 'Property'.
+ * Representa la tabla 'property' en la base de datos.
+ * Almacena la información de los apartamentos vacacionales pertenecientes a los anfitriones.
  */
-@Entity('business')
-export class Business {
+@Entity('property')
+export class Property {
   /** Clave primaria autoincremental de la base de datos. */
   @PrimaryGeneratedColumn()
   id: number;
@@ -29,21 +29,32 @@ export class Business {
   @Column()
   usuarioId: number;
 
-  /** Relación con el Jefe (Admin) que posee esta empresa. */
-  @ManyToOne(() => Usuario, (usuario) => usuario.empresas, { onDelete: 'CASCADE' })
+  /** Descripción detallada del apartamento. */
+  @Column({ type: 'text', nullable: true })
+  description: string;
+
+  /** Precio por noche de la estancia. */
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  pricePerNight: number;
+
+  /** Número máximo de huéspedes permitidos. */
+  @Column({ type: 'int', default: 1 })
+  maxGuests: number;
+
+  /** Lista de comodidades (Wifi, Piscina, etc.). Se guarda como JSON o texto. */
+  @Column({ type: 'jsonb', nullable: true })
+  amenities: string[];
+
+  /** URLs de las imágenes de la propiedad. */
+  @Column({ type: 'jsonb', nullable: true })
+  images: string[];
+
+  /** Relación con el Anfitrión (Host) que posee esta propiedad. */
+  @ManyToOne(() => Usuario, (usuario) => usuario.properties, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'usuarioId' })
-  usuario: Usuario;
+  host: Usuario;
 
-  /** ID de la cuenta de usuario propia de la empresa (para que el local pueda loguearse). */
-  @Column({ unique: true, nullable: true })
-  businessUserId: number;
-
-  /** Cuenta de usuario asociada exclusivamente a este local/empresa. */
-  @OneToOne(() => Usuario, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'businessUserId' })
-  businessUser: Usuario;
-
-  /** Lista de reservas asociadas a esta empresa. */
-  @OneToMany(() => BookingEntity, (appointment) => appointment.businessId)
+  /** Lista de reservas asociadas a esta propiedad. */
+  @OneToMany(() => BookingEntity, (appointment) => appointment.property)
   appointments: BookingEntity[];
 }

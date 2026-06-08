@@ -41,8 +41,8 @@ export class UsuariosController {
     return this.usuariosService.update(id, dto);
   }
 
-  @Get('clients')
-  @ApiOperation({ summary: 'Obtener todos los clientes' })
+  @Get('guests')
+  @ApiOperation({ summary: 'Obtener todos los clientes/huéspedes' })
   async getClients(
     @Req() req: any,
     @Query('page') page?: string,
@@ -56,16 +56,16 @@ export class UsuariosController {
     );
   }
 
-  @Get('clients/business/:businessId')
-  @ApiOperation({ summary: 'Obtener los clientes de un negocio' })
+  @Get('guests/property/:propertyId')
+  @ApiOperation({ summary: 'Obtener los huéspedes de una propiedad' })
   async getClientsByBusiness(
-    @Param('businessId', ParseIntPipe) businessId: number,
+    @Param('propertyId', ParseIntPipe) propertyId: number,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
   ) {
     return this.usuariosService.findClientsByBusiness(
-      businessId,
+      propertyId,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
       search || ''
@@ -78,14 +78,14 @@ export class UsuariosController {
     return this.usuariosService.findByEmail(email);
   }
 
-  @Post('clients')
-  @ApiOperation({ summary: 'Crear un nuevo cliente' })
+  @Post('guests')
+  @ApiOperation({ summary: 'Crear un nuevo huésped' })
   async createClient(@Body() dto: UpdateUsuarioDto) {
     return this.usuariosService.crearUsuario(
-      dto.username || `c_${Date.now()}`,
+      dto.username || `g_${Date.now()}`,
       dto.email!,
       dto.contrasena || '1234',
-      UserRole.CLIENT,
+      UserRole.GUEST,
       dto.nombreCompleto,
       dto.dni
     );

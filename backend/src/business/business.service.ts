@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Business } from './business.entity';
+import { Property } from './business.entity';
 
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { CreateBusinessDto } from './dto/create-business.dto';
@@ -11,35 +11,25 @@ import { UserRole } from '../usuarios/usuario.entity';
 @Injectable()
 export class BusinessService {
   constructor(
-    @InjectRepository(Business)
-    private readonly businessRepository: Repository<Business>,
+    @InjectRepository(Property)
+    private readonly propertyRepository: Repository<Property>,
     private readonly usuariosService: UsuariosService,
   ) {}
 
   /**
-   * Crea una nueva empresa y su cuenta de usuario asociada.
+   * Crea una nueva propiedad.
    */
-  async crearEmpresa(dto: CreateBusinessDto): Promise<Business> {
-    const { nombre, direccion, telefono, username, email, contrasena, usuarioId } = dto;
+  async crearEmpresa(dto: CreateBusinessDto): Promise<Property> {
+    const { nombre, direccion, telefono, usuarioId } = dto;
 
-    // 1. Crear el usuario con rol BUSINESS
-    const businessUser = await this.usuariosService.crearUsuario(
-      username,
-      email,
-      contrasena,
-      UserRole.BUSINESS,
-    );
-
-    // 2. Crear el perfil de la empresa vinculado al Jefe y a su propia cuenta
-    const nuevaEmpresa = this.businessRepository.create({
+    const nuevaPropiedad = this.propertyRepository.create({
       nombre,
       direccion,
       telefono,
       usuarioId,
-      businessUserId: businessUser.id,
     });
 
-    return this.businessRepository.save(nuevaEmpresa);
+    return this.propertyRepository.save(nuevaPropiedad);
   }
 
   async findAll(
@@ -53,25 +43,23 @@ export class BusinessService {
     sortOrder: 'ASC' | 'DESC' = 'DESC',
     filterField?: string,
     filterValue?: string
-  ): Promise<{ data: Business[], total: number }> {
-    const query = this.businessRepository.createQueryBuilder('business');
+  ): Promise<{ data: Property[], total: number }> {
+    const query = this.propertyRepository.createQueryBuilder('property');
     
-    if (role === UserRole.SUPERADMIN || role === UserRole.CLIENT) {
-      if (role === UserRole.SUPERADMIN) {
-        query.leftJoinAndSelect('business.usuario', 'usuario');
+    if (role === UserRole.SUPERADMIN || role === UserRole.GUEST || role === UserRole.ADMIN) {
+      if (role === UserRole.SUPERADMIN || role === UserRole.ADMIN) {
+        query.leftJoinAndSelect('property.host', 'usuario');
       }
-    } else if (role === UserRole.ADMIN) {
-      query.where('business.usuarioId = :userId', { userId });
-    } else if (role === UserRole.BUSINESS) {
-      query.where('business.businessUserId = :userId', { userId });
+    } else if (role === UserRole.HOST) {
+      query.where('property.usuarioId = :userId', { userId });
     } else {
       query.where('1 = 0'); // Fallback si no tiene rol conocido
     }
 
     if (search) {
-      const searchCondition = '(LOWER(business.nombre) LIKE LOWER(:search) OR LOWER(business.direccion) LIKE LOWER(:search) OR LOWER(business.telefono) LIKE LOWER(:search))';
+      const searchCondition = '(LOWER(property.nombre) LIKE LOWER(:search) OR LOWER(property.direccion) LIKE LOWER(:search) OR LOWER(property.telefono) LIKE LOWER(:search))';
       
-      if (role === UserRole.SUPERADMIN) {
+      if (role === UserRole.SUPERADMIN || role === UserRole.ADMIN) {
         query.andWhere(`(${searchCondition} OR LOWER(usuario.nombreCompleto) LIKE LOWER(:search) OR LOWER(usuario.username) LIKE LOWER(:search))`, { search: `%${search}%` });
       } else {
         query.andWhere(searchCondition, { search: `%${search}%` });
@@ -81,22 +69,22 @@ export class BusinessService {
     // Specific filters
     if (filterField && filterValue) {
       if (filterField === 'has_phone') {
-        if (filterValue === 'true') query.andWhere('business.telefono IS NOT NULL');
-        else query.andWhere('business.telefono IS NULL');
+        if (filterValue === 'true') query.andWhere('property.telefono IS NOT NULL');
+        else query.andWhere('property.telefono IS NULL');
       } else if (filterField === 'has_address') {
-        if (filterValue === 'true') query.andWhere('business.direccion IS NOT NULL');
-        else query.andWhere('business.direccion IS NULL');
+        if (filterValue === 'true') query.andWhere('property.direccion IS NOT NULL');
+        else query.andWhere('property.direccion IS NULL');
       } else {
-        query.andWhere(`LOWER(business.${filterField}) LIKE LOWER(:filterValue)`, { filterValue: `%${filterValue}%` });
+        query.andWhere(`LOWER(property.${filterField}) LIKE LOWER(:filterValue)`, { filterValue: `%${filterValue}%` });
       }
     }
 
     // Sorting
-    const allowedSortFields = ['id', 'nombre', 'direccion', 'telefono'];
+    const allowedSortFields = ['id', 'nombre', 'direccion', 'telefono', 'pricePerNight', 'maxGuests'];
     if (allowedSortFields.includes(sortBy)) {
-      query.orderBy(`business.${sortBy}`, sortOrder);
+      query.orderBy(`property.${sortBy}`, sortOrder);
     } else {
-      query.orderBy('business.id', 'DESC');
+      query.orderBy('property.id', 'DESC');
     }
 
     const [data, total] = await query
@@ -107,37 +95,35 @@ export class BusinessService {
     return { data, total };
   }
 
-  async findOne(id: number, userId: number, role: UserRole, username?: string): Promise<Business> {
+  async findOne(id: number, userId: number, role: UserRole, username?: string): Promise<Property> {
     const where: any = { id };
     
-    // Si NO es SUPERADMIN o CLIENT, aplicamos las reglas de tenencia
-    if (role !== UserRole.SUPERADMIN && role !== UserRole.CLIENT) {
-      if (role === UserRole.ADMIN) {
+    // Si NO es SUPERADMIN o GUEST o ADMIN, aplicamos las reglas de tenencia
+    if (role !== UserRole.SUPERADMIN && role !== UserRole.GUEST && role !== UserRole.ADMIN) {
+      if (role === UserRole.HOST) {
         where.usuarioId = userId;
-      } else if (role === UserRole.BUSINESS) {
-        where.businessUserId = userId;
       }
     }
 
-    const business = await this.businessRepository.findOne({ 
+    const property = await this.propertyRepository.findOne({ 
       where,
-      relations: role === UserRole.SUPERADMIN ? ['usuario'] : []
+      relations: role === UserRole.SUPERADMIN || role === UserRole.ADMIN ? ['host'] : []
     });
     
-    if (!business) {
-      throw new NotFoundException(`Business with ID ${id} not found or access denied`);
+    if (!property) {
+      throw new NotFoundException(`Property with ID ${id} not found or access denied`);
     }
-    return business;
+    return property;
   }
 
-  async update(id: number, updateBusinessDto: UpdateBusinessDto, userId: number, role: UserRole, username?: string): Promise<Business> {
-    const business = await this.findOne(id, userId, role, username);
-    await this.businessRepository.update(id, updateBusinessDto);
+  async update(id: number, updateBusinessDto: UpdateBusinessDto, userId: number, role: UserRole, username?: string): Promise<Property> {
+    const property = await this.findOne(id, userId, role, username);
+    await this.propertyRepository.update(id, updateBusinessDto);
     return this.findOne(id, userId, role, username);
   }
 
   async remove(id: number, userId: number, role: UserRole, username?: string): Promise<void> {
-    const business = await this.findOne(id, userId, role, username);
-    await this.businessRepository.delete(id);
+    const property = await this.findOne(id, userId, role, username);
+    await this.propertyRepository.delete(id);
   }
 }

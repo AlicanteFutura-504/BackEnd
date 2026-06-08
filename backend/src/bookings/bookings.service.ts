@@ -2,15 +2,17 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BookingEntity } from './booking.entity';
-import { Business } from '../business/business.entity';
+import { Property } from '../business/business.entity';
 import { Payment } from '../payments/payments.entity';
+import { MailerService, BookingMailData } from '../mailer/mailer.service';
+import { UsuariosService } from '../usuarios/usuarios.service';
 
 /** Datos del usuario autenticado extraídos del JWT */
 interface ReqUser {
   userId: number;
   username: string;
   role: string;
-  businessId?: number | null;
+  propertyId?: number | null;
 }
 
 @Injectable()
@@ -18,28 +20,29 @@ export class BookingsService {
   constructor(
     @InjectRepository(BookingEntity)
     private readonly bookingsRepository: Repository<BookingEntity>,
-    @InjectRepository(Business)
-    private readonly businessRepository: Repository<Business>,
+    @InjectRepository(Property)
+    private readonly propertyRepository: Repository<Property>,
+    private readonly mailerService: MailerService,
+    private readonly usuariosService: UsuariosService,
   ) {}
 
   /**
-   * Devuelve los IDs de negocio a los que el usuario tiene acceso.
-   * - root        → null  (sin filtro, ve todo)
-   * - ADMIN       → IDs de sus propios negocios
-   * - BUSINESS    → [businessId] del token
+   * Devuelve los IDs de propiedades a las que el usuario tiene acceso.
+   * - SUPERADMIN  → null  (sin filtro, ve todo)
+   * - HOST        → IDs de sus propias propiedades
    */
   private async getAccessibleIds(user: ReqUser): Promise<number[] | null> {
-    if (user.role === 'superadmin') return null;
+    if (user.role === 'superadmin' || user.role === 'admin') return null;
 
-    const whereCondition = user.role === 'admin' 
-      ? { usuarioId: user.userId } 
-      : { businessUserId: user.userId };
-
-    const businesses = await this.businessRepository.find({
-      where: whereCondition,
-      select: ['id'],
-    });
-    return businesses.map((b) => b.id);
+    if (user.role === 'host') {
+      const properties = await this.propertyRepository.find({
+        where: { usuarioId: user.userId },
+        select: ['id'],
+      });
+      return properties.map((p) => p.id);
+    }
+    
+    return []; // guest o desconocido no tiene acceso por esta vía a consultar IDs ajenos
   }
 
   async findAll(
@@ -55,19 +58,18 @@ export class BookingsService {
       .leftJoinAndMapOne('booking.payment', Payment, 'payment', '"payment"."bookingId" = "booking"."id"');
       
     if (ids !== null) {
-      query.where('booking.businessId IN (:...ids)', { ids });
+      query.where('booking.propertyId IN (:...ids)', { ids });
     }
 
     if (search) {
       query.andWhere(
-        '(LOWER(booking."serviceName") LIKE LOWER(:search))',
+        '(LOWER(booking.status) LIKE LOWER(:search))',
         { search: `%${search}%` }
       );
     }
 
     const [data, total] = await query
-      .orderBy('booking.date', 'DESC')
-      .addOrderBy('booking.time', 'DESC')
+      .orderBy('booking.checkInDate', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -76,28 +78,27 @@ export class BookingsService {
   }
 
   async findByBusiness(
-    businessId: number, 
+    propertyId: number, 
     user: ReqUser,
     page: number = 1,
     limit: number = 20,
     search: string = ''
   ): Promise<{ data: BookingEntity[], total: number }> {
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && !ids.includes(businessId)) {
-      throw new ForbiddenException('No tienes acceso a este negocio');
+    if (ids !== null && !ids.includes(propertyId)) {
+      throw new ForbiddenException('No tienes acceso a esta propiedad');
     }
     
     const query = this.bookingsRepository.createQueryBuilder('booking')
       .leftJoinAndMapOne('booking.payment', Payment, 'payment', '"payment"."bookingId" = "booking"."id"')
-      .where('booking.businessId = :businessId', { businessId });
+      .where('booking.propertyId = :propertyId', { propertyId });
       
     if (search) {
-      query.andWhere('LOWER(booking."serviceName") LIKE LOWER(:search)', { search: `%${search}%` });
+      query.andWhere('LOWER(booking.status) LIKE LOWER(:search)', { search: `%${search}%` });
     }
     
     const [data, total] = await query
-      .orderBy('booking.date', 'DESC')
-      .addOrderBy('booking.time', 'DESC')
+      .orderBy('booking.checkInDate', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -107,36 +108,56 @@ export class BookingsService {
 
   async findByCustomer(usuarioId: number, user: ReqUser): Promise<BookingEntity[]> {
     const ids = await this.getAccessibleIds(user);
-    if (ids === null) {
+    if (ids === null || user.userId === usuarioId) {
       return this.bookingsRepository.find({ where: { usuarioId } });
     }
     if (ids.length === 0) return [];
     return this.bookingsRepository.find({
-      where: { usuarioId, businessId: In(ids) },
+      where: { usuarioId, propertyId: In(ids) },
     });
   }
 
-  async findByDateRange(from: string, to: string, user: ReqUser, businessId?: number): Promise<BookingEntity[]> {
+  async findByDateRange(from: string, to: string, user: ReqUser, propertyId?: number): Promise<BookingEntity[]> {
     const ids = await this.getAccessibleIds(user);
     const qb = this.bookingsRepository
       .createQueryBuilder('booking')
-      .where('booking.date >= :from', { from })
-      .andWhere('booking.date <= :to', { to });
+      .where('booking.checkInDate >= :from', { from })
+      .andWhere('booking.checkInDate <= :to', { to });
 
-    if (businessId) {
-      if (ids !== null && !ids.includes(businessId)) throw new ForbiddenException('No tienes acceso a este negocio');
-      qb.andWhere('booking.businessId = :businessId', { businessId });
+    if (propertyId) {
+      if (ids !== null && !ids.includes(propertyId)) throw new ForbiddenException('No tienes acceso a esta propiedad');
+      qb.andWhere('booking.propertyId = :propertyId', { propertyId });
     } else if (ids !== null) {
       if (ids.length === 0) return [];
-      qb.andWhere('booking.businessId IN (:...ids)', { ids });
+      qb.andWhere('booking.propertyId IN (:...ids)', { ids });
     }
 
-    return qb.orderBy('booking.date', 'ASC').addOrderBy('booking.time', 'ASC').getMany();
+    return qb.orderBy('booking.checkInDate', 'ASC').getMany();
   }
 
   async create(data: Partial<BookingEntity>): Promise<BookingEntity> {
     const booking = this.bookingsRepository.create(data);
-    return this.bookingsRepository.save(booking);
+    const savedBooking = await this.bookingsRepository.save(booking);
+
+    // Enviar notificación
+    try {
+      const guest = await this.usuariosService.findOneById(savedBooking.usuarioId);
+      const property = await this.propertyRepository.findOne({ where: { id: savedBooking.propertyId }});
+      if (guest && property) {
+        await this.mailerService.sendBookingNotification({
+          guestEmail: guest.email,
+          guestName: guest.nombreCompleto || guest.username,
+          propertyName: property.nombre,
+          checkInDate: savedBooking.checkInDate,
+          checkOutDate: savedBooking.checkOutDate,
+          status: savedBooking.status as any,
+        });
+      }
+    } catch (e) {
+      // Ignorar errores de correo
+    }
+
+    return savedBooking;
   }
 
   async update(id: number, data: Partial<BookingEntity>, user: ReqUser): Promise<BookingEntity> {
@@ -144,12 +165,30 @@ export class BookingsService {
     if (!booking) throw new NotFoundException(`Booking con ID ${id} no encontrada`);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && !ids.includes(booking.businessId)) {
+    if (ids !== null && !ids.includes(booking.propertyId) && user.userId !== booking.usuarioId) {
       throw new ForbiddenException('No tienes permiso para modificar esta reserva');
     }
 
     Object.assign(booking, data);
-    return this.bookingsRepository.save(booking);
+    const updatedBooking = await this.bookingsRepository.save(booking);
+
+    // Enviar notificación
+    try {
+      const guest = await this.usuariosService.findOneById(updatedBooking.usuarioId);
+      const property = await this.propertyRepository.findOne({ where: { id: updatedBooking.propertyId }});
+      if (guest && property) {
+        await this.mailerService.sendBookingNotification({
+          guestEmail: guest.email,
+          guestName: guest.nombreCompleto || guest.username,
+          propertyName: property.nombre,
+          checkInDate: updatedBooking.checkInDate,
+          checkOutDate: updatedBooking.checkOutDate,
+          status: updatedBooking.status as any, // 'modified', 'cancelled', 'confirmed'
+        });
+      }
+    } catch (e) {}
+
+    return updatedBooking;
   }
 
   async remove(id: number, user: ReqUser): Promise<void> {
@@ -157,7 +196,7 @@ export class BookingsService {
     if (!booking) throw new NotFoundException(`Booking con ID ${id} no encontrada`);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && !ids.includes(booking.businessId)) {
+    if (ids !== null && !ids.includes(booking.propertyId) && user.userId !== booking.usuarioId) {
       throw new ForbiddenException('No tienes permiso para eliminar esta reserva');
     }
 

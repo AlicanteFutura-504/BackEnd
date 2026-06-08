@@ -3,6 +3,8 @@ import { BookingsService } from './bookings.service';
 import { BookingEntity } from './booking.entity';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Roles } from '../auth/roles.decorator';
+import { UserRole } from '../usuarios/usuario.entity';
 
 @ApiTags('bookings')
 @ApiBearerAuth()
@@ -30,26 +32,26 @@ export class BookingsController {
   findByDateRange(
     @Query('from') from: string,
     @Query('to') to: string,
-    @Query('businessId') businessId: string,
+    @Query('propertyId') propertyId: string,
     @Req() req: any,
   ) {
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!from || !to || !dateRegex.test(from) || !dateRegex.test(to)) {
       throw new BadRequestException('Los parámetros from y to son obligatorios con formato YYYY-MM-DD');
     }
-    return this.bookingsService.findByDateRange(from, to, req.user, businessId ? parseInt(businessId, 10) : undefined);
+    return this.bookingsService.findByDateRange(from, to, req.user, propertyId ? parseInt(propertyId, 10) : undefined);
   }
 
-  @Get('business/:businessId')
+  @Get('property/:propertyId')
   findByBusiness(
-    @Param('businessId') businessId: string, 
+    @Param('propertyId') propertyId: string, 
     @Req() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string
   ) {
     return this.bookingsService.findByBusiness(
-      +businessId, 
+      +propertyId, 
       req.user,
       page ? parseInt(page) : 1,
       limit ? parseInt(limit) : 20,
@@ -63,6 +65,7 @@ export class BookingsController {
   }
 
   @Post()
+  @Roles(UserRole.GUEST, UserRole.HOST, UserRole.ADMIN)
   create(@Body() createBookingDto: CreateBookingDto) {
     return this.bookingsService.create(createBookingDto);
   }
@@ -77,6 +80,7 @@ export class BookingsController {
   }
 
   @Delete(':id')
+  @Roles(UserRole.HOST, UserRole.ADMIN)
   remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.bookingsService.remove(id, req.user);
   }

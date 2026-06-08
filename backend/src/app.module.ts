@@ -8,9 +8,11 @@ import { UsuariosModule } from './usuarios/usuarios.module';
 import { BusinessModule } from './business/business.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
+import { RolesGuard } from './auth/roles.guard';
 import { BookingsModule } from './bookings/bookings.module';
-import { AiModule } from './ai/ai.module';
+
 import { DashboardModule } from './dashboard/dashboard.module';
+import { MailerModule } from './mailer/mailer.module';
 
 /**
  * Módulo raíz de la aplicación NestJS.
@@ -41,14 +43,19 @@ import { DashboardModule } from './dashboard/dashboard.module';
     BusinessModule,
     AuthModule,
     BookingsModule,
-    AiModule,
     DashboardModule,
+    PaymentsModule,
+    MailerModule,
   ],
   controllers: [],
   providers: [
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RolesGuard,
     },
   ],
 })

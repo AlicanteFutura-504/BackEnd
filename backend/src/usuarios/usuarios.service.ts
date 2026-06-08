@@ -43,7 +43,7 @@ export class UsuariosService implements OnModuleInit {
     username: string,
     email: string,
     contrasena: string,
-    role: UserRole = UserRole.BUSINESS,
+    role: UserRole = UserRole.HOST,
     nombreCompleto?: string,
     dni?: string,
     phone?: string,
@@ -84,6 +84,12 @@ export class UsuariosService implements OnModuleInit {
   async findByEmail(email: string): Promise<Usuario | null> {
     return this.usuariosRepository.findOne({
       where: { email },
+    });
+  }
+
+  async findOneById(id: number): Promise<Usuario | null> {
+    return this.usuariosRepository.findOne({
+      where: { id },
     });
   }
 
@@ -132,7 +138,7 @@ export class UsuariosService implements OnModuleInit {
 
   async findAllClients(page: number = 1, limit: number = 20, search: string = ''): Promise<{ data: Usuario[], total: number }> {
     const query = this.usuariosRepository.createQueryBuilder('usuario')
-      .where('usuario.role = :role', { role: UserRole.CLIENT });
+      .where('usuario.role = :role', { role: UserRole.GUEST });
 
     if (search) {
       query.andWhere(
@@ -150,11 +156,11 @@ export class UsuariosService implements OnModuleInit {
     return { data, total };
   }
 
-  async findClientsByBusiness(businessId: number, page: number = 1, limit: number = 20, search: string = ''): Promise<{ data: Usuario[], total: number }> {
+  async findClientsByBusiness(propertyId: number, page: number = 1, limit: number = 20, search: string = ''): Promise<{ data: Usuario[], total: number }> {
     const query = this.usuariosRepository.createQueryBuilder('usuario')
-      .innerJoin('appointment', 'appointment', 'appointment."usuarioId" = usuario.id')
-      .where('appointment."businessId" = :businessId', { businessId })
-      .andWhere('usuario.role = :role', { role: UserRole.CLIENT });
+      .innerJoin('booking', 'booking', 'booking."usuarioId" = usuario.id')
+      .where('booking."propertyId" = :propertyId', { propertyId })
+      .andWhere('usuario.role = :role', { role: UserRole.GUEST });
 
     if (search) {
       query.andWhere(

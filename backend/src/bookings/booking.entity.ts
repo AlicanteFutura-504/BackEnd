@@ -1,25 +1,25 @@
 import { Column, Entity, PrimaryGeneratedColumn, Unique, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
 import { Usuario } from '../usuarios/usuario.entity';
-import { Business } from '../business/business.entity';
+import { Property } from '../business/business.entity';
 import { Payment } from '../payments/payments.entity';
 
 export enum BookingStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
-  PAID = 'paid',
+  MODIFIED = 'modified',
+  CANCELLED = 'cancelled',
 }
 
-@Entity('appointment')
-@Unique(['date', 'time', 'businessId'])
+@Entity('booking')
 export class BookingEntity {
   @PrimaryGeneratedColumn()
   id: number;
 
   @Column({ type: 'date' })
-  date: string;
+  checkInDate: string;
 
-  @Column()
-  time: string;
+  @Column({ type: 'date' })
+  checkOutDate: string;
 
   @Column({
     type: 'text',
@@ -35,14 +35,11 @@ export class BookingEntity {
   usuario: Usuario;
 
   @Column()
-  businessId: number;
+  propertyId: number;
 
-  @ManyToOne(() => Business, { eager: true, onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'businessId' })
-  business: Business;
-
-  @Column()
-  serviceName: string;
+  @ManyToOne(() => Property, { eager: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'propertyId' })
+  property: Property;
 
   @OneToOne(() => Payment, payment => payment.booking, { eager: true, cascade: true })
   payment: Payment;

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Business } from '../business/business.entity';
+import { Property } from '../business/business.entity';
 import { BookingEntity } from '../bookings/booking.entity';
 import { Usuario } from '../usuarios/usuario.entity';
 import { Payment } from '../payments/payments.entity';
@@ -10,28 +10,28 @@ import { UserRole } from '../usuarios/usuario.entity';
 @Injectable()
 export class DashboardService {
   constructor(
-    @InjectRepository(Business) private businessRepo: Repository<Business>,
+    @InjectRepository(Property) private propertyRepo: Repository<Property>,
     @InjectRepository(BookingEntity) private bookingRepo: Repository<BookingEntity>,
     @InjectRepository(Usuario) private usuarioRepo: Repository<Usuario>,
     @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
   ) {}
 
   async getSummary(user: any) {
-    let businessQuery = this.businessRepo.createQueryBuilder('b');
+    let propertyQuery = this.propertyRepo.createQueryBuilder('b');
     let bookingQuery = this.bookingRepo.createQueryBuilder('bk');
-    let customerQuery = this.usuarioRepo.createQueryBuilder('c').where("c.role = 'client'");
+    let customerQuery = this.usuarioRepo.createQueryBuilder('c').where("c.role = 'guest'");
     let paymentQuery = this.paymentRepo.createQueryBuilder('p').leftJoin('p.booking', 'booking');
 
     // Apply tenancy logic if not root
-    if (user.role !== UserRole.SUPERADMIN) {
-      const bSubQuery = this.businessRepo.createQueryBuilder('bs')
+    if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN) {
+      const bSubQuery = this.propertyRepo.createQueryBuilder('bs')
         .select('bs.id')
-        .where(user.role === UserRole.ADMIN ? '"bs"."usuarioId" = :userId' : '"bs"."businessUserId" = :userId');
+        .where('"bs"."usuarioId" = :userId');
 
-      businessQuery.where(user.role === UserRole.ADMIN ? '"b"."usuarioId" = :userId' : '"b"."businessUserId" = :userId', { userId: user.userId });
+      propertyQuery.where('"b"."usuarioId" = :userId', { userId: user.userId });
       
-      bookingQuery.where(`"bk"."businessId" IN (${bSubQuery.getQuery()})`, { userId: user.userId });
-      paymentQuery.where(`"booking"."businessId" IN (${bSubQuery.getQuery()})`, { userId: user.userId });
+      bookingQuery.where(`"bk"."propertyId" IN (${bSubQuery.getQuery()})`, { userId: user.userId });
+      paymentQuery.where(`"booking"."propertyId" IN (${bSubQuery.getQuery()})`, { userId: user.userId });
     }
 
     // Run all count queries in parallel for maximum performance
@@ -43,10 +43,10 @@ export class DashboardService {
       earningsResult,
       latestBookings,
     ] = await Promise.all([
-      businessQuery.getCount(),
+      propertyQuery.getCount(),
       bookingQuery.getCount(),
       bookingQuery.clone().andWhere("bk.status = 'pending'").getCount(),
-      user.role === UserRole.SUPERADMIN 
+      user.role === UserRole.SUPERADMIN || user.role === UserRole.ADMIN
         ? customerQuery.getCount() 
         : bookingQuery.clone().select('COUNT(DISTINCT "bk"."usuarioId")', 'count').getRawOne().then(res => Number(res?.count || 0)),
       paymentQuery.clone()
@@ -54,7 +54,7 @@ export class DashboardService {
         .select("SUM(p.amount)", "total")
         .getRawOne(),
       bookingQuery.clone()
-        .orderBy('bk.date', 'DESC')
+        .orderBy('bk.checkInDate', 'DESC')
         .addOrderBy('bk.id', 'DESC')
         .take(5)
         .getMany(),
@@ -62,55 +62,55 @@ export class DashboardService {
 
     const totalEarnings = earningsResult?.total || 0;
 
-    // Attach business names
-    const businessIds = [...new Set(latestBookings.map(b => b.businessId))];
-    let businessMap = new Map<number, string>();
-    if (businessIds.length > 0) {
+    // Attach property names
+    const propertyIds = [...new Set(latestBookings.map(b => b.propertyId))];
+    let propertyMap = new Map<number, string>();
+    if (propertyIds.length > 0) {
       const { In } = await import('typeorm');
-      const businesses = await this.businessRepo.findBy({ id: In(businessIds) });
-      businessMap = new Map(businesses.map(b => [b.id, b.nombre]));
+      const properties = await this.propertyRepo.findBy({ id: In(propertyIds) });
+      propertyMap = new Map(properties.map(b => [b.id, b.nombre]));
     }
 
     return {
-      totalBusinesses,
+      totalProperties: totalBusinesses,
       totalBookings,
       pendingBookings,
       totalCustomers,
       totalEarnings,
       latestBookings: latestBookings.map(b => ({
         id: b.id,
-        date: b.date,
-        serviceName: b.serviceName,
+        checkInDate: b.checkInDate,
+        checkOutDate: b.checkOutDate,
         status: b.status,
-        businessName: businessMap.get(b.businessId) || 'Local'
+        propertyName: propertyMap.get(b.propertyId) || 'Propiedad'
       }))
     };
   }
 
-  async getBusinessSummary(businessId: number, user: any) {
-    // Verify access: superadmin sees all, admin sees their own, business sees theirs
-    if (user.role !== 'superadmin') {
-      const field = user.role === 'admin' ? '"usuarioId"' : '"businessUserId"';
-      const business = await this.businessRepo
+  async getBusinessSummary(propertyId: number, user: any) {
+    // Verify access
+    if (user.role !== 'superadmin' && user.role !== 'admin') {
+      const field = '"usuarioId"';
+      const property = await this.propertyRepo
         .createQueryBuilder('b')
-        .where(`b.id = :businessId AND b.${field} = :userId`, { businessId, userId: user.userId })
+        .where(`b.id = :propertyId AND b.${field} = :userId`, { propertyId, userId: user.userId })
         .getOne();
-      if (!business) throw new Error('Access denied');
+      if (!property) throw new Error('Access denied');
     }
 
     const [totalBookings, pendingBookings, totalCustomers, earningsResult, latestBookings] = await Promise.all([
-      this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId', { businessId }).getCount(),
-      this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId AND bk.status = :s', { businessId, s: 'pending' }).getCount(),
-      this.bookingRepo.createQueryBuilder('bk').where('bk.businessId = :businessId', { businessId }).select('COUNT(DISTINCT "bk"."usuarioId")', 'count').getRawOne().then(res => Number(res?.count || 0)),
+      this.bookingRepo.createQueryBuilder('bk').where('bk.propertyId = :propertyId', { propertyId }).getCount(),
+      this.bookingRepo.createQueryBuilder('bk').where('bk.propertyId = :propertyId AND bk.status = :s', { propertyId, s: 'pending' }).getCount(),
+      this.bookingRepo.createQueryBuilder('bk').where('bk.propertyId = :propertyId', { propertyId }).select('COUNT(DISTINCT "bk"."usuarioId")', 'count').getRawOne().then(res => Number(res?.count || 0)),
       this.paymentRepo.createQueryBuilder('p')
         .leftJoin('p.booking', 'booking')
-        .where('"booking"."businessId" = :businessId', { businessId })
+        .where('"booking"."propertyId" = :propertyId', { propertyId })
         .select('SUM(CASE WHEN p.status = \'pagado\' THEN p.amount ELSE 0 END)', 'total')
         .addSelect('SUM(CASE WHEN p.status = \'pendiente\' THEN p.amount ELSE 0 END)', 'pending')
         .getRawOne(),
       this.bookingRepo.createQueryBuilder('bk')
-        .where('bk.businessId = :businessId', { businessId })
-        .orderBy('bk.date', 'DESC')
+        .where('bk.propertyId = :propertyId', { propertyId })
+        .orderBy('bk.checkInDate', 'DESC')
         .addOrderBy('bk.id', 'DESC')
         .take(5)
         .getMany(),

@@ -1,14 +1,14 @@
 import { Column, Entity, PrimaryGeneratedColumn, OneToMany, OneToOne } from 'typeorm';
-import { Business } from '../business/business.entity';
+import { Property } from '../business/business.entity';
 
 /**
  * Roles de usuario en el sistema.
  */
 export enum UserRole {
   SUPERADMIN = 'superadmin', // Desarrolladores / Dueños del SaaS
-  ADMIN = 'admin',           // Jefe / Empresario
-  BUSINESS = 'business',     // Empresa (local creado por el admin)
-  CLIENT = 'client',         // Cliente que hace reservas
+  ADMIN = 'admin',           // Gestión de la plataforma
+  HOST = 'host',             // Anfitrión (dueño de propiedades)
+  GUEST = 'guest',           // Huésped que hace reservas
 }
 
 /**
@@ -52,15 +52,11 @@ export class Usuario {
   /** Rol asignado al usuario. */
   @Column({
     type: 'text',
-    default: UserRole.BUSINESS,
+    default: UserRole.GUEST,
   })
   role: UserRole;
 
-  /** Empresas asociadas (si el rol es ADMIN). */
-  @OneToMany(() => Business, (business) => business.usuario)
-  empresas: Business[];
-
-  /** Perfil de empresa asociado (si el rol es BUSINESS). */
-  @OneToOne(() => Business, (business) => business.businessUser)
-  businessProfile: Business;
+  /** Propiedades asociadas (si el rol es HOST). */
+  @OneToMany(() => Property, (property) => property.host)
+  properties: Property[];
 }

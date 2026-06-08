@@ -13,7 +13,7 @@ function generateUserSense(role) {
   const nombreCompleto = `${firstName} ${lastName}`;
   // El username sera el nombre sin espacios en minuscula
   const username = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`.replace(/\s+/g, '');
-  const email = `${username}@${role === 'admin' ? 'empresa' : 'cliente'}.com`;
+  const email = `${username}@${role === 'host' ? 'anfitrion' : 'huesped'}.com`;
   const phone = faker.phone.number('+34 ### ### ###');
   const profilePicture = faker.image.avatar();
   
@@ -36,66 +36,71 @@ async function run() {
     console.log('Conectado a la base de datos DEV.');
     
     console.log('Limpiando base de datos (excepto root)...');
-    await client.query('TRUNCATE TABLE payment, appointment, business CASCADE;');
+    await client.query('TRUNCATE TABLE payment, booking, property CASCADE;');
     await client.query("DELETE FROM usuarios WHERE username != 'root';");
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash('1234', salt);
 
-    console.log(`Generando ${NUM_ADMINS} empresarios (admins)...`);
+    console.log(`Generando ${NUM_ADMINS} anfitriones (hosts)...`);
     const adminIds = [];
     let adminCredentials = [];
     
     for (let i = 1; i <= NUM_ADMINS; i++) {
-      const u = generateUserSense('admin');
+      const u = generateUserSense('host');
       if (i === 1) {
          // Garantizamos un admin facil de loguear
-         u.email = 'empresario1@dev.com';
-         u.username = 'empresario1';
+         u.email = 'anfitrion1@dev.com';
+         u.username = 'anfitrion1';
          adminCredentials.push(u.email);
       }
       const query = `INSERT INTO usuarios (username, "nombreCompleto", dni, email, contrasena, "profilePicture", role, phone) 
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;`;
-      const values = [u.username, u.nombreCompleto, `${faker.string.numeric(8)}X`, u.email, passwordHash, u.profilePicture, 'admin', u.phone];
+      const values = [u.username, u.nombreCompleto, `${faker.string.numeric(8)}X`, u.email, passwordHash, u.profilePicture, 'host', u.phone];
       const res = await client.query(query, values);
       adminIds.push(res.rows[0].id);
     }
 
-    console.log(`Generando Negocios (1 a 10 por empresario)...`);
+    console.log(`Generando Propiedades (1 a 10 por anfitrión)...`);
     const businessIds = [];
     for (const adminId of adminIds) {
       const numBiz = faker.number.int({ min: 1, max: 10 });
       for (let j = 0; j < numBiz; j++) {
-        const bName = faker.company.name();
+        const bName = faker.location.streetAddress() + ' Apartment';
         const bDir = faker.location.streetAddress();
         const bPhone = faker.phone.number('+34 ### ### ###');
-        const query = `INSERT INTO business (nombre, direccion, telefono, "usuarioId") VALUES ($1, $2, $3, $4) RETURNING id;`;
-        const res = await client.query(query, [bName, bDir, bPhone, adminId]);
+        const desc = faker.lorem.paragraph();
+        const price = faker.number.int({ min: 40, max: 300 });
+        const maxGuests = faker.number.int({ min: 1, max: 8 });
+        const amenities = JSON.stringify(['Wifi', 'Cocina', 'TV', 'Aire acondicionado']);
+        const images = JSON.stringify([faker.image.urlLoremFlickr({ category: 'apartment' })]);
+        
+        const query = `INSERT INTO property (nombre, direccion, telefono, "usuarioId", description, "pricePerNight", "maxGuests", amenities, images) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id;`;
+        const res = await client.query(query, [bName, bDir, bPhone, adminId, desc, price, maxGuests, amenities, images]);
         businessIds.push(res.rows[0].id);
       }
     }
 
-    console.log(`Generando ${NUM_CUSTOMERS} clientes...`);
+    console.log(`Generando ${NUM_CUSTOMERS} huéspedes...`);
     const customerIds = [];
     let customerCredentials = [];
     
     for (let i = 1; i <= NUM_CUSTOMERS; i++) {
-      const u = generateUserSense('client');
+      const u = generateUserSense('guest');
       if (i === 1) {
-         u.email = 'cliente1@dev.com';
-         u.username = 'cliente1';
+         u.email = 'huesped1@dev.com';
+         u.username = 'huesped1';
          customerCredentials.push(u.email);
       }
       const query = `INSERT INTO usuarios (username, "nombreCompleto", dni, email, contrasena, "profilePicture", role, phone) 
                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id;`;
-      const values = [u.username, u.nombreCompleto, `${faker.string.numeric(8)}Y`, u.email, passwordHash, u.profilePicture, 'client', u.phone];
+      const values = [u.username, u.nombreCompleto, `${faker.string.numeric(8)}Y`, u.email, passwordHash, u.profilePicture, 'guest', u.phone];
       const res = await client.query(query, values);
       customerIds.push(res.rows[0].id);
     }
 
-    console.log(`Generando reservas a lo largo del mes en curso...`);
-    const statuses = ['pending', 'confirmed', 'paid', 'cancelled'];
-    const services = ['Corte de pelo', 'Revisión general', 'Consulta inicial', 'Limpieza profunda', 'Sesión de fisioterapia', 'Masaje relajante', 'Entrenamiento personal'];
+    console.log(`Generando reservas de estancias a lo largo del mes en curso...`);
+    const statuses = ['pending', 'confirmed', 'modified', 'cancelled'];
     
     let totalBookings = 0;
     let paymentQueryValues = [];
@@ -106,29 +111,29 @@ async function run() {
         const cId = faker.helpers.arrayElement(customerIds);
         const status = faker.helpers.arrayElement(statuses);
         
-        // Fecha aleatoria dentro de este mismo mes
+        // Fechas de Check-In y Check-Out
         const now = new Date();
         const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        const randomDay = faker.number.int({ min: 1, max: daysInMonth });
-        const date = new Date(now.getFullYear(), now.getMonth(), randomDay).toISOString().split('T')[0];
+        const randomDay = faker.number.int({ min: 1, max: daysInMonth - 3 });
+        const duration = faker.number.int({ min: 1, max: 7 });
         
-        const time = `${faker.number.int({ min: 8, max: 20 }).toString().padStart(2, '0')}:00`;
-        const serviceName = faker.helpers.arrayElement(services);
+        const checkInDate = new Date(now.getFullYear(), now.getMonth(), randomDay).toISOString().split('T')[0];
+        const checkOutDate = new Date(now.getFullYear(), now.getMonth(), randomDay + duration).toISOString().split('T')[0];
         
-        const bQuery = `INSERT INTO appointment (date, time, status, "usuarioId", "businessId", "serviceName") 
-                        VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING RETURNING id;`;
-        const bRes = await client.query(bQuery, [date, time, status, cId, bId, serviceName]);
+        const bQuery = `INSERT INTO booking ("checkInDate", "checkOutDate", status, "usuarioId", "propertyId") 
+                        VALUES ($1, $2, $3, $4, $5) RETURNING id;`;
+        const bRes = await client.query(bQuery, [checkInDate, checkOutDate, status, cId, bId]);
         
         if (bRes.rows.length > 0) {
           const bookingId = bRes.rows[0].id;
           totalBookings++;
           
           // Crear pago asociado
-          const pStatus = (status === 'paid') ? 'pagado' : faker.helpers.arrayElement(['pagado', 'pendiente']);
-          const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'bizum']);
-          const amount = faker.number.int({ min: 15, max: 120 });
+          const pStatus = (status === 'confirmed') ? 'pagado' : faker.helpers.arrayElement(['pagado', 'pendiente']);
+          const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'transferencia']);
+          const amount = faker.number.int({ min: 100, max: 1500 });
           
-          paymentQueryValues.push(`('${date}', '${pStatus}', '${pType}', ${amount}, ${bookingId})`);
+          paymentQueryValues.push(`('${checkInDate}', '${pStatus}', '${pType}', ${amount}, ${bookingId})`);
         }
       }
     }
@@ -145,13 +150,13 @@ async function run() {
 
     console.log(`\n✅ ¡Base de datos rellenada con éxito y mucho sentido!`);
     console.log(`📊 ESTADÍSTICAS:`);
-    console.log(`- Empresarios: ${adminIds.length}`);
-    console.log(`- Negocios creados: ${businessIds.length}`);
-    console.log(`- Clientes: ${customerIds.length}`);
-    console.log(`- Reservas creadas este mes: ${totalBookings}`);
+    console.log(`- Anfitriones: ${adminIds.length}`);
+    console.log(`- Propiedades creadas: ${businessIds.length}`);
+    console.log(`- Huéspedes: ${customerIds.length}`);
+    console.log(`- Reservas vacacionales creadas este mes: ${totalBookings}`);
     console.log(`\n🔑 CREDENCIALES PREPARADAS (Contraseña siempre '1234'):`);
-    console.log(`👉 Empresario: ${adminCredentials[0]}`);
-    console.log(`👉 Cliente: ${customerCredentials[0]}`);
+    console.log(`👉 Anfitrión: ${adminCredentials[0]}`);
+    console.log(`👉 Huésped: ${customerCredentials[0]}`);
 
   } catch (error) {
     console.error('Error durante el seeding DEV:', error);
