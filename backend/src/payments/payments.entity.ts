@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, JoinColumn } from 'typeorm';
+import { Column, Entity, OneToOne, PrimaryGeneratedColumn, JoinColumn } from 'typeorm';
 import { BookingEntity } from '../bookings/booking.entity';
 
 /**
@@ -48,7 +48,7 @@ export class Payment {
   @Column({ nullable: true })
   bookingId: number;
 
-  @ManyToOne(() => BookingEntity, { onDelete: 'CASCADE', nullable: true })
+  @OneToOne(() => BookingEntity, booking => booking.payment, { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'bookingId' })
   booking: BookingEntity;
 
