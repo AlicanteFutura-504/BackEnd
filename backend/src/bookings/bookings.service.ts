@@ -57,7 +57,7 @@ export class BookingsService {
     const query = this.bookingsRepository.createQueryBuilder('booking')
       .leftJoinAndSelect('booking.usuario', 'usuario')
       .leftJoinAndSelect('booking.property', 'property')
-      .leftJoinAndMapOne('booking.payment', Payment, 'payment', '"payment"."bookingId" = "booking"."id"');
+      .leftJoinAndSelect('booking.payment', 'payment');
       
     if (ids !== null) {
       query.where('booking.propertyId IN (:...ids)', { ids });
@@ -94,7 +94,7 @@ export class BookingsService {
     const query = this.bookingsRepository.createQueryBuilder('booking')
       .leftJoinAndSelect('booking.usuario', 'usuario')
       .leftJoinAndSelect('booking.property', 'property')
-      .leftJoinAndMapOne('booking.payment', Payment, 'payment', '"payment"."bookingId" = "booking"."id"')
+      .leftJoinAndSelect('booking.payment', 'payment')
       .where('booking.propertyId = :propertyId', { propertyId });
       
     if (search) {
@@ -113,11 +113,15 @@ export class BookingsService {
   async findByCustomer(usuarioId: number, user: ReqUser): Promise<BookingEntity[]> {
     const ids = await this.getAccessibleIds(user);
     if (ids === null || user.userId === usuarioId) {
-      return this.bookingsRepository.find({ where: { usuarioId } });
+      return this.bookingsRepository.find({ 
+        where: { usuarioId },
+        relations: ['payment', 'usuario', 'property']
+      });
     }
     if (ids.length === 0) return [];
     return this.bookingsRepository.find({
       where: { usuarioId, propertyId: In(ids) },
+      relations: ['payment', 'usuario', 'property']
     });
   }
 

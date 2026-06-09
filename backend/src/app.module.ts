@@ -26,12 +26,12 @@ import { MailerModule } from './mailer/mailer.module';
     }),
     TypeOrmModule.forRootAsync({
       useFactory: () => {
-        const isPostgres = !!process.env.DATABASE_URL;
+        if (!process.env.DATABASE_URL) {
+          throw new Error("DATABASE_URL is not defined in the environment variables.");
+        }
         return {
-          type: isPostgres ? 'postgres' : 'sqlite',
-          ...(isPostgres 
-            ? { url: process.env.DATABASE_URL }
-            : { database: 'data/database.sqlite' }),
+          type: 'postgres',
+          url: process.env.DATABASE_URL,
           autoLoadEntities: true,
           // NUNCA activar synchronize en producción: usar migraciones
           synchronize: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,

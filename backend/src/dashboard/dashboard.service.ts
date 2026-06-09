@@ -41,8 +41,8 @@ export class DashboardService {
 
       propertyQuery.where('"b"."usuarioId" = :userId', { userId: user.userId });
       
-      bookingQuery.where(`"bk"."propertyId" IN (${bSubQuery.getQuery()})`, { userId: user.userId });
-      paymentQuery.where(`"booking"."propertyId" IN (${bSubQuery.getQuery()})`, { userId: user.userId });
+      bookingQuery.where(`bk.propertyId IN (${bSubQuery.getQuery()})`, { userId: user.userId });
+      paymentQuery.where(`booking.propertyId IN (${bSubQuery.getQuery()})`, { userId: user.userId });
     }
 
     // Run all count queries in parallel for maximum performance
@@ -115,17 +115,17 @@ export class DashboardService {
     let bQuery = this.bookingRepo.createQueryBuilder('bk').where('bk.propertyId = :propertyId', { propertyId });
     let pQuery = this.paymentRepo.createQueryBuilder('p')
       .leftJoin('p.booking', 'booking')
-      .where('"booking"."propertyId" = :propertyId', { propertyId });
+      .where('booking.propertyId = :propertyId', { propertyId });
 
     if (range === 'month') {
       const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
       bQuery.andWhere('bk.checkInDate >= :startDate', { startDate: startOfMonth });
-      pQuery.andWhere('"booking"."checkInDate" >= :startDate', { startDate: startOfMonth });
+      pQuery.andWhere('booking.checkInDate >= :startDate', { startDate: startOfMonth });
     } else if (range === 'week') {
       const d = new Date();
       const startOfWeek = new Date(d.setDate(d.getDate() - d.getDay())).toISOString().split('T')[0];
       bQuery.andWhere('bk.checkInDate >= :startDate', { startDate: startOfWeek });
-      pQuery.andWhere('"booking"."checkInDate" >= :startDate', { startDate: startOfWeek });
+      pQuery.andWhere('booking.checkInDate >= :startDate', { startDate: startOfWeek });
     }
 
     const [totalBookings, pendingBookings, totalCustomers, earningsResult, latestBookings] = await Promise.all([
