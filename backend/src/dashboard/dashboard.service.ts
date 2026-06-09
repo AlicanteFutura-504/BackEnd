@@ -54,6 +54,8 @@ export class DashboardService {
         .select("SUM(p.amount)", "total")
         .getRawOne(),
       bookingQuery.clone()
+        .leftJoinAndSelect('bk.usuario', 'usuario')
+        .leftJoinAndSelect('bk.property', 'property')
         .orderBy('bk.checkInDate', 'DESC')
         .addOrderBy('bk.id', 'DESC')
         .take(5)
@@ -82,7 +84,8 @@ export class DashboardService {
         checkInDate: b.checkInDate,
         checkOutDate: b.checkOutDate,
         status: b.status,
-        propertyName: propertyMap.get(b.propertyId) || 'Propiedad'
+        propertyName: b.property?.nombre || propertyMap.get(b.propertyId) || 'Propiedad',
+        customerName: b.usuario?.nombreCompleto || b.usuario?.username || 'Huésped',
       }))
     };
   }
@@ -109,6 +112,8 @@ export class DashboardService {
         .addSelect('SUM(CASE WHEN p.status = \'pendiente\' THEN p.amount ELSE 0 END)', 'pending')
         .getRawOne(),
       this.bookingRepo.createQueryBuilder('bk')
+        .leftJoinAndSelect('bk.usuario', 'usuario')
+        .leftJoinAndSelect('bk.property', 'property')
         .where('bk.propertyId = :propertyId', { propertyId })
         .orderBy('bk.checkInDate', 'DESC')
         .addOrderBy('bk.id', 'DESC')
@@ -122,7 +127,14 @@ export class DashboardService {
       totalCustomers,
       totalRevenue: Number(earningsResult?.total || 0),
       pendingRevenue: Number(earningsResult?.pending || 0),
-      latestBookings,
+      latestBookings: latestBookings.map(b => ({
+        id: b.id,
+        checkInDate: b.checkInDate,
+        checkOutDate: b.checkOutDate,
+        status: b.status,
+        propertyName: b.property?.nombre || 'Propiedad',
+        customerName: b.usuario?.nombreCompleto || b.usuario?.username || 'Huésped',
+      })),
     };
   }
 }

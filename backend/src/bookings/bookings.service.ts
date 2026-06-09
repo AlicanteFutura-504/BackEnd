@@ -55,6 +55,8 @@ export class BookingsService {
     if (ids !== null && ids.length === 0) return { data: [], total: 0 };
 
     const query = this.bookingsRepository.createQueryBuilder('booking')
+      .leftJoinAndSelect('booking.usuario', 'usuario')
+      .leftJoinAndSelect('booking.property', 'property')
       .leftJoinAndMapOne('booking.payment', Payment, 'payment', '"payment"."bookingId" = "booking"."id"');
       
     if (ids !== null) {
@@ -90,6 +92,8 @@ export class BookingsService {
     }
     
     const query = this.bookingsRepository.createQueryBuilder('booking')
+      .leftJoinAndSelect('booking.usuario', 'usuario')
+      .leftJoinAndSelect('booking.property', 'property')
       .leftJoinAndMapOne('booking.payment', Payment, 'payment', '"payment"."bookingId" = "booking"."id"')
       .where('booking.propertyId = :propertyId', { propertyId });
       
