@@ -4,10 +4,10 @@ const { fakerES: faker } = require('@faker-js/faker');
 const bcrypt = require('bcrypt');
 
 // Configuración de Volúmenes (Stress Testing)
-const NUM_ADMINS = 1000;
-const NUM_BUSINESSES = 5000;
-const NUM_CUSTOMERS = 20000;
-const NUM_BOOKINGS = 50000; 
+const NUM_ADMINS = 10;
+const NUM_BUSINESSES = 50;
+const NUM_CUSTOMERS = 1000;
+const NUM_BOOKINGS = 15000; // Unas 300 reservas por propiedad
 const CHUNK_SIZE = 2500; 
 
 function generateUserSense(role) {
@@ -54,6 +54,10 @@ async function run() {
     let queryValues = [];
     for (let i = 1; i <= NUM_ADMINS; i++) {
       const u = generateUserSense('host');
+      if (i === 1) {
+         u.email = 'anfitrion1@dev.com';
+         u.username = 'anfitrion1';
+      }
       const dni = `${String(i).padStart(8, '0')}X`;
       queryValues.push(`('${u.username}', '${u.nombreCompleto.replace(/'/g, "''")}', '${dni}', '${u.email}', '${passwordHash}', '${u.profilePicture}', 'host', '${u.phone}')`);
       
@@ -96,6 +100,10 @@ async function run() {
     queryValues = [];
     for (let i = 1; i <= NUM_CUSTOMERS; i++) {
       const u = generateUserSense('guest');
+      if (i === 1) {
+         u.email = 'huesped1@dev.com';
+         u.username = 'huesped1';
+      }
       const fakeDni = `${String(i).padStart(8, '0')}Y`;
       queryValues.push(`('${u.username}', '${u.nombreCompleto.replace(/'/g, "''")}', '${fakeDni}', '${u.email}', '${passwordHash}', '${u.profilePicture}', 'guest', '${u.phone}')`);
       
@@ -162,6 +170,9 @@ async function run() {
     console.log(`- Huéspedes: ${NUM_CUSTOMERS}`);
     console.log(`- Reservas: ${NUM_BOOKINGS}`);
     console.log(`- Pagos insertados: ~${paymentCount}`);
+    console.log(`\n🔑 CREDENCIALES MASIVAS (Contraseña siempre '1234'):`);
+    console.log(`👉 Anfitrión: anfitrion1@dev.com (anfitrion1)`);
+    console.log(`👉 Huésped: huesped1@dev.com (huesped1)`);
 
   } catch (error) {
     console.error('Error durante el seeding:', error);

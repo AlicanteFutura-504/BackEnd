@@ -16,11 +16,22 @@ export class DashboardService {
     @InjectRepository(Payment) private paymentRepo: Repository<Payment>,
   ) {}
 
-  async getSummary(user: any) {
+  async getSummary(user: any, range?: string) {
     let propertyQuery = this.propertyRepo.createQueryBuilder('b');
     let bookingQuery = this.bookingRepo.createQueryBuilder('bk');
     let customerQuery = this.usuarioRepo.createQueryBuilder('c').where("c.role = 'guest'");
     let paymentQuery = this.paymentRepo.createQueryBuilder('p').leftJoin('p.booking', 'booking');
+
+    if (range === 'month') {
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+      bookingQuery.andWhere('bk.checkInDate >= :startDate', { startDate: startOfMonth });
+      paymentQuery.andWhere('booking.checkInDate >= :startDate', { startDate: startOfMonth });
+    } else if (range === 'week') {
+      const d = new Date();
+      const startOfWeek = new Date(d.setDate(d.getDate() - d.getDay())).toISOString().split('T')[0];
+      bookingQuery.andWhere('bk.checkInDate >= :startDate', { startDate: startOfWeek });
+      paymentQuery.andWhere('booking.checkInDate >= :startDate', { startDate: startOfWeek });
+    }
 
     // Apply tenancy logic if not root
     if (user.role !== UserRole.SUPERADMIN && user.role !== UserRole.ADMIN) {
@@ -90,7 +101,7 @@ export class DashboardService {
     };
   }
 
-  async getBusinessSummary(propertyId: number, user: any) {
+  async getBusinessSummary(propertyId: number, user: any, range?: string) {
     // Verify access
     if (user.role !== 'superadmin' && user.role !== 'admin') {
       const field = '"usuarioId"';
@@ -101,20 +112,33 @@ export class DashboardService {
       if (!property) throw new Error('Access denied');
     }
 
+    let bQuery = this.bookingRepo.createQueryBuilder('bk').where('bk.propertyId = :propertyId', { propertyId });
+    let pQuery = this.paymentRepo.createQueryBuilder('p')
+      .leftJoin('p.booking', 'booking')
+      .where('"booking"."propertyId" = :propertyId', { propertyId });
+
+    if (range === 'month') {
+      const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+      bQuery.andWhere('bk.checkInDate >= :startDate', { startDate: startOfMonth });
+      pQuery.andWhere('"booking"."checkInDate" >= :startDate', { startDate: startOfMonth });
+    } else if (range === 'week') {
+      const d = new Date();
+      const startOfWeek = new Date(d.setDate(d.getDate() - d.getDay())).toISOString().split('T')[0];
+      bQuery.andWhere('bk.checkInDate >= :startDate', { startDate: startOfWeek });
+      pQuery.andWhere('"booking"."checkInDate" >= :startDate', { startDate: startOfWeek });
+    }
+
     const [totalBookings, pendingBookings, totalCustomers, earningsResult, latestBookings] = await Promise.all([
-      this.bookingRepo.createQueryBuilder('bk').where('bk.propertyId = :propertyId', { propertyId }).getCount(),
-      this.bookingRepo.createQueryBuilder('bk').where('bk.propertyId = :propertyId AND bk.status = :s', { propertyId, s: 'pending' }).getCount(),
-      this.bookingRepo.createQueryBuilder('bk').where('bk.propertyId = :propertyId', { propertyId }).select('COUNT(DISTINCT "bk"."usuarioId")', 'count').getRawOne().then(res => Number(res?.count || 0)),
-      this.paymentRepo.createQueryBuilder('p')
-        .leftJoin('p.booking', 'booking')
-        .where('"booking"."propertyId" = :propertyId', { propertyId })
+      bQuery.clone().getCount(),
+      bQuery.clone().andWhere("bk.status = 'pending'").getCount(),
+      bQuery.clone().select('COUNT(DISTINCT "bk"."usuarioId")', 'count').getRawOne().then(res => Number(res?.count || 0)),
+      pQuery.clone()
         .select('SUM(CASE WHEN p.status = \'pagado\' THEN p.amount ELSE 0 END)', 'total')
         .addSelect('SUM(CASE WHEN p.status = \'pendiente\' THEN p.amount ELSE 0 END)', 'pending')
         .getRawOne(),
-      this.bookingRepo.createQueryBuilder('bk')
+      bQuery.clone()
         .leftJoinAndSelect('bk.usuario', 'usuario')
         .leftJoinAndSelect('bk.property', 'property')
-        .where('bk.propertyId = :propertyId', { propertyId })
         .orderBy('bk.checkInDate', 'DESC')
         .addOrderBy('bk.id', 'DESC')
         .take(5)
