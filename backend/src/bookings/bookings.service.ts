@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
+import { BookingStatus } from './booking.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BookingEntity } from './booking.entity';
@@ -144,6 +145,13 @@ export class BookingsService {
   }
 
   async create(data: Partial<BookingEntity>): Promise<BookingEntity> {
+    if (!data.propertyId || !data.checkInDate || !data.checkOutDate) {
+      throw new BadRequestException('Faltan datos de reserva');
+    }
+    const overlap = await this.hasOverlappingBooking(data.propertyId, data.checkInDate, data.checkOutDate);
+    if (overlap) {
+      throw new ConflictException('La propiedad ya está reservada en esas fechas');
+    }
     const booking = this.bookingsRepository.create(data);
     const savedBooking = await this.bookingsRepository.save(booking);
 
@@ -175,6 +183,15 @@ export class BookingsService {
     const ids = await this.getAccessibleIds(user);
     if (ids !== null && !ids.includes(booking.propertyId) && user.userId !== booking.usuarioId) {
       throw new ForbiddenException('No tienes permiso para modificar esta reserva');
+    }
+
+    // Verificar solapamiento de fechas si se proporcionan nuevas fechas
+    if (data.checkInDate && data.checkOutDate) {
+      const propertyId = data.propertyId ?? booking.propertyId;
+      const overlap = await this.hasOverlappingBooking(propertyId, data.checkInDate, data.checkOutDate, id);
+      if (overlap) {
+        throw new ConflictException('La propiedad ya está reservada en esas fechas');
+      }
     }
 
     Object.assign(booking, data);
@@ -209,5 +226,25 @@ export class BookingsService {
     }
 
     await this.bookingsRepository.delete(id);
+  }
+
+  private async hasOverlappingBooking(
+    propertyId: number,
+    checkInDate: string,
+    checkOutDate: string,
+    excludeBookingId?: number,
+  ): Promise<boolean> {
+    const qb = this.bookingsRepository.createQueryBuilder('booking')
+      .where('booking.propertyId = :propertyId', { propertyId })
+      .andWhere('booking.checkInDate < :checkOutDate', { checkOutDate })
+      .andWhere('booking.checkOutDate > :checkInDate', { checkInDate })
+      .andWhere('booking.status != :cancelled', { cancelled: 'cancelled' });
+
+    if (excludeBookingId) {
+      qb.andWhere('booking.id != :excludeId', { excludeId: excludeBookingId });
+    }
+
+    const count = await qb.getCount();
+    return count > 0;
   }
 }

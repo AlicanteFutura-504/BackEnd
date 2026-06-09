@@ -123,44 +123,49 @@ async function run() {
 
     let paymentCount = 0;
 
-    for (let i = 1; i <= NUM_BOOKINGS; i++) {
-      let cId = faker.helpers.arrayElement(customerIds);
-      let bId = faker.helpers.arrayElement(businessIds);
+    const bookingsPerBusiness = Math.floor(NUM_BOOKINGS / NUM_BUSINESSES);
+    for (const bId of businessIds) {
+      // Comenzamos las reservas a principio de año para distribuir las 300 reservas
+      let currentDate = new Date();
+      currentDate.setMonth(currentDate.getMonth() - 6);
+      currentDate.setDate(1);
 
-      const status = faker.helpers.arrayElement(statuses);
-      
-      const checkInDateObj = faker.date.recent({ days: 60 });
-      const checkInDate = checkInDateObj.toISOString().split('T')[0];
-      const duration = faker.number.int({ min: 1, max: 7 });
-      const checkOutDateObj = new Date(checkInDateObj);
-      checkOutDateObj.setDate(checkOutDateObj.getDate() + duration);
-      const checkOutDate = checkOutDateObj.toISOString().split('T')[0];
+      for (let j = 0; j < bookingsPerBusiness; j++) {
+        let cId = faker.helpers.arrayElement(customerIds);
+        const status = faker.helpers.arrayElement(statuses);
+        
+        const gap = faker.number.int({ min: 0, max: 2 });
+        const duration = faker.number.int({ min: 1, max: 5 });
 
-      bEntityQueryValues.push(`('${checkInDate}', '${checkOutDate}', '${status}', ${cId}, ${bId})`);
+        currentDate.setDate(currentDate.getDate() + gap);
+        const checkInDate = currentDate.toISOString().split('T')[0];
+        
+        currentDate.setDate(currentDate.getDate() + duration);
+        const checkOutDate = currentDate.toISOString().split('T')[0];
 
-      if (bEntityQueryValues.length >= CHUNK_SIZE || i === NUM_BOOKINGS) {
-        const bQuery = `INSERT INTO booking ("checkInDate", "checkOutDate", status, "usuarioId", "propertyId") VALUES ${bEntityQueryValues.join(',')} RETURNING id;`;
-        const bRes = await client.query(bQuery);
-        const insertedBookingIds = bRes.rows.map(r => r.id);
+        bEntityQueryValues.push(`('${checkInDate}', '${checkOutDate}', '${status}', ${cId}, ${bId})`);
 
-        if (insertedBookingIds.length > 0) {
-          const paymentQueryValues = insertedBookingIds.map((bookingId, idx) => {
-             // Recuperar el status original insertado en el batch? No lo tenemos fácilmente mapeado por conflict, 
-             // pero podemos hacer un random simple o usar un estado basico.
-             // Como es stress testing, simplificamos el pago:
-             const pStatus = faker.helpers.arrayElement(['pagado', 'pendiente']);
-             const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'transferencia']);
-             const amount = faker.number.int({ min: 100, max: 1500 });
-             const pDate = faker.date.recent({ days: 60 }).toISOString().split('T')[0];
-             paymentCount++;
-             return `('${pDate}', '${pStatus}', '${pType}', ${amount}, ${bookingId})`;
-          });
-          const pQuery = `INSERT INTO payment (date, status, type, amount, "bookingId") VALUES ${paymentQueryValues.join(',')};`;
-          await client.query(pQuery);
+        if (bEntityQueryValues.length >= CHUNK_SIZE || (bId === businessIds[businessIds.length - 1] && j === bookingsPerBusiness - 1)) {
+          const bQuery = `INSERT INTO booking ("checkInDate", "checkOutDate", status, "usuarioId", "propertyId") VALUES ${bEntityQueryValues.join(',')} RETURNING id;`;
+          const bRes = await client.query(bQuery);
+          const insertedBookingIds = bRes.rows.map(r => r.id);
+
+          if (insertedBookingIds.length > 0) {
+            const paymentQueryValues = insertedBookingIds.map((bookingId, idx) => {
+               const pStatus = faker.helpers.arrayElement(['pagado', 'pendiente']);
+               const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'transferencia']);
+               const amount = faker.number.int({ min: 100, max: 1500 });
+               const pDate = checkInDate; // Fecha de pago = checkIn para simplificar
+               paymentCount++;
+               return `('${pDate}', '${pStatus}', '${pType}', ${amount}, ${bookingId})`;
+            });
+            const pQuery = `INSERT INTO payment (date, status, type, amount, "bookingId") VALUES ${paymentQueryValues.join(',')};`;
+            await client.query(pQuery);
+          }
+
+          bEntityQueryValues = [];
+          console.log(` Insertadas ${(businessIds.indexOf(bId) * bookingsPerBusiness) + j + 1} reservas (con sus pagos)...`);
         }
-
-        bEntityQueryValues = [];
-        console.log(` Insertadas ${i} reservas (con sus pagos)...`);
       }
     }
 

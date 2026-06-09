@@ -107,17 +107,23 @@ async function run() {
     let bIdsCount = 0;
     
     for (const bId of businessIds) {
+      // Comenzamos las reservas a principio del mes pasado para tener datos históricos y futuros
+      let currentDate = new Date();
+      currentDate.setMonth(currentDate.getMonth() - 1);
+      currentDate.setDate(1);
+
       for (let j = 0; j < BOOKINGS_PER_BUSINESS; j++) {
         const cId = faker.helpers.arrayElement(customerIds);
         const status = faker.helpers.arrayElement(statuses);
         
-        const now = new Date();
-        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-        const randomDay = faker.number.int({ min: 1, max: daysInMonth - 3 });
+        const gap = faker.number.int({ min: 0, max: 3 });
         const duration = faker.number.int({ min: 1, max: 7 });
         
-        const checkInDate = new Date(now.getFullYear(), now.getMonth(), randomDay).toISOString().split('T')[0];
-        const checkOutDate = new Date(now.getFullYear(), now.getMonth(), randomDay + duration).toISOString().split('T')[0];
+        currentDate.setDate(currentDate.getDate() + gap);
+        const checkInDate = currentDate.toISOString().split('T')[0];
+        
+        currentDate.setDate(currentDate.getDate() + duration);
+        const checkOutDate = currentDate.toISOString().split('T')[0];
         
         bEntityQueryValues.push(`('${checkInDate}', '${checkOutDate}', '${status}', ${cId}, ${bId})`);
         totalBookings++;

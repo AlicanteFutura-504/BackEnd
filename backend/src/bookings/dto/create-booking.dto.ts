@@ -7,11 +7,11 @@ export class CreateBookingDto {
 
   @IsOptional()
   @IsString()
-  date?: string;
+  checkInDate?: string;
 
   @IsOptional()
   @IsString()
-  time?: string;
+  checkOutDate?: string;
 
   @IsOptional()
   @IsString()
@@ -23,9 +23,5 @@ export class CreateBookingDto {
 
   @IsOptional()
   @IsNumber()
-  businessId?: number;
-
-  @IsOptional()
-  @IsString()
-  serviceName?: string;
+  propertyId?: number;
 }
