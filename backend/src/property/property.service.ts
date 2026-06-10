@@ -1,30 +1,34 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Property } from './business.entity';
+import { Property } from './property.entity';
+import { Review } from './review.entity';
 
 import { UsuariosService } from '../usuarios/usuarios.service';
-import { CreateBusinessDto } from './dto/create-business.dto';
-import { UpdateBusinessDto } from './dto/update-business.dto';
+import { CreatePropertyDto } from './dto/create-property.dto';
+import { UpdatePropertyDto } from './dto/update-property.dto';
 import { UserRole } from '../usuarios/usuario.entity';
 
 @Injectable()
-export class BusinessService {
+export class PropertyService {
   constructor(
     @InjectRepository(Property)
     private readonly propertyRepository: Repository<Property>,
+    @InjectRepository(Review)
+    private readonly reviewRepository: Repository<Review>,
     private readonly usuariosService: UsuariosService,
   ) {}
 
   /**
    * Crea una nueva propiedad.
    */
-  async crearEmpresa(dto: CreateBusinessDto): Promise<Property> {
-    const { nombre, direccion, telefono, usuarioId } = dto;
+  async crearEmpresa(dto: CreatePropertyDto): Promise<Property> {
+    const { nombre, city, address, telefono, usuarioId } = dto;
 
     const nuevaPropiedad = this.propertyRepository.create({
       nombre,
-      direccion,
+      city,
+      address,
       telefono,
       usuarioId,
     });
@@ -57,7 +61,7 @@ export class BusinessService {
     }
 
     if (search) {
-      const searchCondition = '(LOWER(property.nombre) LIKE LOWER(:search) OR LOWER(property.direccion) LIKE LOWER(:search) OR LOWER(property.telefono) LIKE LOWER(:search))';
+      const searchCondition = '(LOWER(property.nombre) LIKE LOWER(:search) OR LOWER(property.city) LIKE LOWER(:search) OR LOWER(property.address) LIKE LOWER(:search) OR LOWER(property.telefono) LIKE LOWER(:search))';
       
       if (role === UserRole.SUPERADMIN || role === UserRole.ADMIN) {
         query.andWhere(`(${searchCondition} OR LOWER(usuario.nombreCompleto) LIKE LOWER(:search) OR LOWER(usuario.username) LIKE LOWER(:search))`, { search: `%${search}%` });
@@ -72,15 +76,15 @@ export class BusinessService {
         if (filterValue === 'true') query.andWhere('property.telefono IS NOT NULL');
         else query.andWhere('property.telefono IS NULL');
       } else if (filterField === 'has_address') {
-        if (filterValue === 'true') query.andWhere('property.direccion IS NOT NULL');
-        else query.andWhere('property.direccion IS NULL');
+        if (filterValue === 'true') query.andWhere('property.address IS NOT NULL');
+        else query.andWhere('property.address IS NULL');
       } else {
         query.andWhere(`LOWER(property.${filterField}) LIKE LOWER(:filterValue)`, { filterValue: `%${filterValue}%` });
       }
     }
 
     // Sorting
-    const allowedSortFields = ['id', 'nombre', 'direccion', 'telefono', 'pricePerNight', 'maxGuests'];
+    const allowedSortFields = ['id', 'nombre', 'city', 'address', 'telefono', 'pricePerNight', 'maxGuests'];
     if (allowedSortFields.includes(sortBy)) {
       query.orderBy(`property.${sortBy}`, sortOrder);
     } else {
@@ -92,7 +96,26 @@ export class BusinessService {
       .take(limit)
       .getManyAndCount();
 
+    // Attach scores
+    for (const p of data) {
+      const scoreObj = await this.getPropertyScore(p.id);
+      (p as any).score = scoreObj.average;
+      (p as any).isPromoted = scoreObj.isPromoted;
+    }
+
     return { data, total };
+  }
+
+  async getPropertyScore(propertyId: number): Promise<{ average: number, isPromoted: boolean }> {
+    const { avgRating } = await this.reviewRepository
+      .createQueryBuilder('r')
+      .select('AVG(r.score)', 'avgRating')
+      .where('r.propertyId = :propertyId', { propertyId })
+      .getRawOne();
+      
+    const average = parseFloat(avgRating) || 0;
+    const isPromoted = average >= 4.5;
+    return { average, isPromoted };
   }
 
   async findOne(id: number, userId: number, role: UserRole, username?: string): Promise<Property> {
@@ -113,12 +136,17 @@ export class BusinessService {
     if (!property) {
       throw new NotFoundException(`Property with ID ${id} not found or access denied`);
     }
+
+    const scoreObj = await this.getPropertyScore(property.id);
+    (property as any).score = scoreObj.average;
+    (property as any).isPromoted = scoreObj.isPromoted;
+
     return property;
   }
 
-  async update(id: number, updateBusinessDto: UpdateBusinessDto, userId: number, role: UserRole, username?: string): Promise<Property> {
+  async update(id: number, updatePropertyDto: UpdatePropertyDto, userId: number, role: UserRole, username?: string): Promise<Property> {
     const property = await this.findOne(id, userId, role, username);
-    await this.propertyRepository.update(id, updateBusinessDto);
+    await this.propertyRepository.update(id, updatePropertyDto);
     return this.findOne(id, userId, role, username);
   }
 

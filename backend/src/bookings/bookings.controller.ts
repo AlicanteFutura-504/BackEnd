@@ -43,14 +43,14 @@ export class BookingsController {
   }
 
   @Get('property/:propertyId')
-  findByBusiness(
+  findByProperty(
     @Param('propertyId') propertyId: string, 
     @Req() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string
   ) {
-    return this.bookingsService.findByBusiness(
+    return this.bookingsService.findByProperty(
       +propertyId, 
       req.user,
       page ? parseInt(page) : 1,

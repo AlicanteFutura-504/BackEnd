@@ -17,9 +17,13 @@ export class Property {
   @Column()
   nombre: string;
 
-  /** Ubicación física o dirección de la empresa. */
+  /** Ciudad de la propiedad. */
   @Column({ nullable: true })
-  direccion: string;
+  city: string;
+
+  /** Dirección exacta de la propiedad. */
+  @Column({ nullable: true })
+  address: string;
 
   /** Teléfono de contacto de la empresa. */
   @Column({ nullable: true })

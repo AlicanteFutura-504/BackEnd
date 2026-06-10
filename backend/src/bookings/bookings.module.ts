@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { BookingsController } from './bookings.controller';
 import { BookingsService } from './bookings.service';
 import { BookingEntity } from './booking.entity';
-import { Property } from '../business/business.entity';
+import { Property } from '../property/property.entity';
 import { MailerModule } from '../mailer/mailer.module';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 

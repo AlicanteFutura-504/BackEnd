@@ -3,7 +3,7 @@ import { BookingStatus } from './booking.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BookingEntity } from './booking.entity';
-import { Property } from '../business/business.entity';
+import { Property } from '../property/property.entity';
 import { Payment } from '../payments/payments.entity';
 import { MailerService, BookingMailData } from '../mailer/mailer.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
@@ -80,7 +80,7 @@ export class BookingsService {
     return { data, total };
   }
 
-  async findByBusiness(
+  async findByProperty(
     propertyId: number, 
     user: ReqUser,
     page: number = 1,
@@ -152,6 +152,14 @@ export class BookingsService {
     if (overlap) {
       throw new ConflictException('La propiedad ya está reservada en esas fechas');
     }
+
+    if (data.payment && data.usuarioId) {
+      const { status } = await this.usuariosService.getGuestTrustScore(data.usuarioId);
+      if (status === 'Promoter') {
+        data.payment.amount = data.payment.amount * 0.90; // 10% de descuento
+      }
+    }
+
     const booking = this.bookingsRepository.create(data);
     const savedBooking = await this.bookingsRepository.save(booking);
 

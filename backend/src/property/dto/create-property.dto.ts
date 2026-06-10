@@ -6,15 +6,20 @@ import { IsEmail, IsInt, IsOptional, IsString, MinLength } from 'class-validator
  * Incluye tanto los datos del perfil de la empresa como las credenciales
  * para su cuenta de usuario automática.
  */
-export class CreateBusinessDto {
+export class CreatePropertyDto {
   @ApiProperty({ example: 'Peluquería Nova' })
   @IsString()
   nombre: string;
 
-  @ApiProperty({ example: 'Calle Mayor 12, Alicante', required: false })
+  @ApiProperty({ example: 'Alicante', required: false })
   @IsOptional()
   @IsString()
-  direccion?: string;
+  city?: string;
+
+  @ApiProperty({ example: 'Calle Mayor 12', required: false })
+  @IsOptional()
+  @IsString()
+  address?: string;
 
   @ApiProperty({ example: '965123456', required: false })
   @IsOptional()

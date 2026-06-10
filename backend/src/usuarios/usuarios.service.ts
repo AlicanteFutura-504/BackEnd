@@ -2,6 +2,8 @@ import { Injectable, ConflictException, OnModuleInit, Logger } from '@nestjs/com
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Usuario, UserRole } from './usuario.entity';
+import { GuestRating } from './guest-rating.entity';
+import { BookingEntity } from '../bookings/booking.entity';
 import * as bcrypt from 'bcrypt';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 
@@ -12,6 +14,10 @@ export class UsuariosService implements OnModuleInit {
   constructor(
     @InjectRepository(Usuario)
     private readonly usuariosRepository: Repository<Usuario>,
+    @InjectRepository(GuestRating)
+    private readonly guestRatingRepository: Repository<GuestRating>,
+    @InjectRepository(BookingEntity)
+    private readonly bookingsRepository: Repository<BookingEntity>,
   ) {}
 
   async onModuleInit() {
@@ -156,7 +162,7 @@ export class UsuariosService implements OnModuleInit {
     return { data, total };
   }
 
-  async findClientsByBusiness(propertyId: number, page: number = 1, limit: number = 20, search: string = ''): Promise<{ data: Usuario[], total: number }> {
+  async findClientsByProperty(propertyId: number, page: number = 1, limit: number = 20, search: string = ''): Promise<{ data: Usuario[], total: number }> {
     const query = this.usuariosRepository.createQueryBuilder('usuario')
       .innerJoin('booking', 'booking', 'booking."usuarioId" = usuario.id')
       .where('booking."propertyId" = :propertyId', { propertyId })
@@ -186,6 +192,42 @@ export class UsuariosService implements OnModuleInit {
       throw new ConflictException('Usuario no encontrado');
     }
     await this.usuariosRepository.remove(usuario);
+  }
+  async getGuestTrustScore(guestId: number): Promise<{ score: number, status: string }> {
+    const { avgRating } = await this.guestRatingRepository
+      .createQueryBuilder('gr')
+      .select('AVG(gr.score)', 'avgRating')
+      .where('gr.guestId = :guestId', { guestId })
+      .getRawOne();
+      
+    const avg = parseFloat(avgRating) || 5; // Default a 5 si no hay valoraciones
+    const hostRatingScore = (avg / 5) * 50;
+
+    const bookings = await this.bookingsRepository.find({
+      where: { usuarioId: guestId },
+      relations: ['payment']
+    });
+
+    const totalBookings = bookings.length;
+    let completedAndPaid = 0;
+    for (const b of bookings) {
+      if ((b.status === 'confirmed' || b.status === 'completed') && b.payment?.status === 'pagado') {
+        completedAndPaid++;
+      }
+    }
+
+    const completionRate = totalBookings > 0 ? (completedAndPaid / totalBookings) : 1;
+    const completionScore = completionRate * 30;
+
+    const loyaltyScore = Math.min((totalBookings / 5) * 20, 20);
+
+    const totalScore = Math.round(hostRatingScore + completionScore + loyaltyScore);
+
+    let status = 'Neutral';
+    if (totalScore >= 80) status = 'Promoter';
+    else if (totalScore < 40) status = 'Detractor';
+
+    return { score: totalScore, status };
   }
 }
 

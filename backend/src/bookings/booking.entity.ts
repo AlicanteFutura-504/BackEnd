@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn, Unique, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
 import { Usuario } from '../usuarios/usuario.entity';
-import { Property } from '../business/business.entity';
+import { Property } from '../property/property.entity';
 import { Payment } from '../payments/payments.entity';
 
 export enum BookingStatus {

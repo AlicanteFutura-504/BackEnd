@@ -41,5 +41,5 @@ export class UpdateUsuarioDto {
   @ApiPropertyOptional({ example: 1, description: 'ID del negocio' })
   @IsOptional()
   @IsNumber()
-  businessId?: number;
+  propertyId?: number;
 }

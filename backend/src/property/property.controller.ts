@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, Delete, Param, Patch, Req, Query } from '@nestjs/common';
-import { BusinessService } from './business.service';
-import { CreateBusinessDto } from './dto/create-business.dto';
-import { UpdateBusinessDto } from './dto/update-business.dto';
+import { PropertyService } from './property.service';
+import { CreatePropertyDto } from './dto/create-property.dto';
+import { UpdatePropertyDto } from './dto/update-property.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../usuarios/usuario.entity';
@@ -9,13 +9,13 @@ import { UserRole } from '../usuarios/usuario.entity';
 @ApiTags('properties')
 @ApiBearerAuth()
 @Controller('properties')
-export class BusinessController {
-  constructor(private readonly businessService: BusinessService) {}
+export class PropertyController {
+  constructor(private readonly propertyService: PropertyService) {}
 
   @Post()
   @Roles(UserRole.HOST, UserRole.ADMIN)
-  async crearEmpresa(@Body() createBusinessDto: CreateBusinessDto) {
-    return this.businessService.crearEmpresa(createBusinessDto);
+  async crearEmpresa(@Body() createPropertyDto: CreatePropertyDto) {
+    return this.propertyService.crearEmpresa(createPropertyDto);
   }
 
   @Get()
@@ -30,7 +30,7 @@ export class BusinessController {
     @Query('filterValue') filterValue?: string
   ) {
     const user = req.user;
-    return this.businessService.findAll(
+    return this.propertyService.findAll(
       user.userId, 
       user.role, 
       user.username,
@@ -47,20 +47,20 @@ export class BusinessController {
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: any) {
     const user = req.user;
-    return this.businessService.findOne(+id, user.userId, user.role, user.username);
+    return this.propertyService.findOne(+id, user.userId, user.role, user.username);
   }
 
   @Patch(':id')
   @Roles(UserRole.HOST, UserRole.ADMIN)
-  async update(@Param('id') id: string, @Body() updateBusinessDto: UpdateBusinessDto, @Req() req: any) {
+  async update(@Param('id') id: string, @Body() updatePropertyDto: UpdatePropertyDto, @Req() req: any) {
     const user = req.user;
-    return this.businessService.update(+id, updateBusinessDto, user.userId, user.role, user.username);
+    return this.propertyService.update(+id, updatePropertyDto, user.userId, user.role, user.username);
   }
 
   @Delete(':id')
   @Roles(UserRole.HOST, UserRole.ADMIN)
   async remove(@Param('id') id: string, @Req() req: any) {
     const user = req.user;
-    return this.businessService.remove(+id, user.userId, user.role, user.username);
+    return this.propertyService.remove(+id, user.userId, user.role, user.username);
   }
 }

@@ -3,7 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Payment } from './payments.entity';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
-import { Property } from '../business/business.entity';
+import { Property } from '../property/property.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Payment, Property])],

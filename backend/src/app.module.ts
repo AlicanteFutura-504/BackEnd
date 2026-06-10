@@ -5,7 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 
 import { PaymentsModule } from './payments/payments.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
-import { BusinessModule } from './business/business.module';
+import { PropertyModule } from './property/property.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
@@ -40,7 +40,7 @@ import { MailerModule } from './mailer/mailer.module';
     }),
     PaymentsModule,
     UsuariosModule,
-    BusinessModule,
+    PropertyModule,
     AuthModule,
     BookingsModule,
     DashboardModule,

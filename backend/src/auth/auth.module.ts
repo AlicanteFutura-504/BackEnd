@@ -7,7 +7,7 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './jwt.strategy';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Property } from '../business/business.entity';
+import { Property } from '../property/property.entity';
 
 @Module({
   imports: [

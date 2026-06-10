@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Property } from '../business/business.entity';
+import { Property } from '../property/property.entity';
 import { BookingEntity } from '../bookings/booking.entity';
 import { Usuario } from '../usuarios/usuario.entity';
 import { Payment } from '../payments/payments.entity';
@@ -47,7 +47,7 @@ export class DashboardService {
 
     // Run all count queries in parallel for maximum performance
     const [
-      totalBusinesses,
+      totalProperties,
       totalBookings,
       pendingBookings,
       totalCustomers,
@@ -85,7 +85,7 @@ export class DashboardService {
     }
 
     return {
-      totalProperties: totalBusinesses,
+      totalProperties: totalProperties,
       totalBookings,
       pendingBookings,
       totalCustomers,
@@ -101,7 +101,7 @@ export class DashboardService {
     };
   }
 
-  async getBusinessSummary(propertyId: number, user: any, range?: string) {
+  async getPropertySummary(propertyId: number, user: any, range?: string) {
     // Verify access
     if (user.role !== 'superadmin' && user.role !== 'admin') {
       const field = '"usuarioId"';

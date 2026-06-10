@@ -4,7 +4,7 @@ import { In, Repository } from 'typeorm';
 import { Payment } from './payments.entity';
 import { CreatePaymentDto } from './dto/create-payments.dto';
 import { UpdatePaymentDto } from './dto/update-payments.dto';
-import { Property } from '../business/business.entity';
+import { Property } from '../property/property.entity';
 import { Usuario } from '../usuarios/usuario.entity';
 
 interface ReqUser {
@@ -41,7 +41,7 @@ export class PaymentsService {
     page: number = 1,
     limit: number = 20,
     search: string = '',
-    businessId?: string
+    propertyId?: string
   ): Promise<{ data: Payment[], total: number }> {
     const ids = await this.getAccessibleIds(user);
     if (ids !== null && ids.length === 0) return { data: [], total: 0 };
@@ -54,11 +54,11 @@ export class PaymentsService {
       query.where('"booking"."propertyId" IN (:...ids)', { ids });
     }
 
-    if (businessId) {
+    if (propertyId) {
       if (ids !== null) {
-        query.andWhere('"booking"."propertyId" = :bId', { bId: parseInt(businessId, 10) });
+        query.andWhere('"booking"."propertyId" = :bId', { bId: parseInt(propertyId, 10) });
       } else {
-        query.where('"booking"."propertyId" = :bId', { bId: parseInt(businessId, 10) });
+        query.where('"booking"."propertyId" = :bId', { bId: parseInt(propertyId, 10) });
       }
     }
 

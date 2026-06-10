@@ -1,5 +1,5 @@
 import { Column, Entity, PrimaryGeneratedColumn, OneToMany, OneToOne } from 'typeorm';
-import { Property } from '../business/business.entity';
+import { Property } from '../property/property.entity';
 
 /**
  * Roles de usuario en el sistema.

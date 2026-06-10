@@ -18,11 +18,11 @@ export class DashboardController {
   }
 
   @Get('property/:id')
-  async getBusinessSummary(@Param('id') id: string, @Req() req: any, @Query('range') range?: string) {
+  async getPropertySummary(@Param('id') id: string, @Req() req: any, @Query('range') range?: string) {
     try {
-      return await this.dashboardService.getBusinessSummary(+id, req.user, range);
+      return await this.dashboardService.getPropertySummary(+id, req.user, range);
     } catch (e) {
-      console.error("Error in getBusinessSummary:", e);
+      console.error("Error in getPropertySummary:", e);
       throw new ForbiddenException('No tienes acceso a esta propiedad');
     }
   }

@@ -58,13 +58,13 @@ export class UsuariosController {
 
   @Get('guests/property/:propertyId')
   @ApiOperation({ summary: 'Obtener los huéspedes de una propiedad' })
-  async getClientsByBusiness(
+  async getClientsByProperty(
     @Param('propertyId', ParseIntPipe) propertyId: number,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('search') search?: string,
   ) {
-    return this.usuariosService.findClientsByBusiness(
+    return this.usuariosService.findClientsByProperty(
       propertyId,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
