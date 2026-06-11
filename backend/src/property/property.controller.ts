@@ -4,6 +4,7 @@ import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/roles.decorator';
+import { Public } from '../auth/public.decorator';
 import { UserRole } from '../usuarios/usuario.entity';
 
 @ApiTags('properties')
@@ -18,6 +19,7 @@ export class PropertyController {
     return this.propertyService.crearEmpresa(createPropertyDto);
   }
 
+  @Public()
   @Get()
   async findAll(
     @Req() req: any,
@@ -29,7 +31,7 @@ export class PropertyController {
     @Query('filterField') filterField?: string,
     @Query('filterValue') filterValue?: string
   ) {
-    const user = req.user;
+    const user = req.user || { userId: 0, role: UserRole.GUEST, username: 'anonymous' };
     return this.propertyService.findAll(
       user.userId, 
       user.role, 
@@ -44,9 +46,10 @@ export class PropertyController {
     );
   }
 
+  @Public()
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: any) {
-    const user = req.user;
+    const user = req.user || { userId: 0, role: UserRole.GUEST, username: 'anonymous' };
     return this.propertyService.findOne(+id, user.userId, user.role, user.username);
   }
 

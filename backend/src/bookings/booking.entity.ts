@@ -6,6 +6,7 @@ import { Payment } from '../payments/payments.entity';
 export enum BookingStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
+  COMPLETED = 'completed',
   MODIFIED = 'modified',
   CANCELLED = 'cancelled',
 }

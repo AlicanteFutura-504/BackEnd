@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property } from './property.entity';
 import { Review } from './review.entity';
+import { BookingEntity, BookingStatus } from '../bookings/booking.entity';
 
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
@@ -16,6 +17,8 @@ export class PropertyService {
     private readonly propertyRepository: Repository<Property>,
     @InjectRepository(Review)
     private readonly reviewRepository: Repository<Review>,
+    @InjectRepository(BookingEntity)
+    private readonly bookingRepository: Repository<BookingEntity>,
     private readonly usuariosService: UsuariosService,
   ) {}
 
@@ -103,6 +106,14 @@ export class PropertyService {
       (p as any).isPromoted = scoreObj.isPromoted;
     }
 
+    // Sort by score or push promoted properties to the top
+    data.sort((a: any, b: any) => {
+      if (sortBy === 'score') {
+        return sortOrder === 'DESC' ? b.score - a.score : a.score - b.score;
+      }
+      return (b.isPromoted ? 1 : 0) - (a.isPromoted ? 1 : 0);
+    });
+
     return { data, total };
   }
 
@@ -140,6 +151,26 @@ export class PropertyService {
     const scoreObj = await this.getPropertyScore(property.id);
     (property as any).score = scoreObj.average;
     (property as any).isPromoted = scoreObj.isPromoted;
+
+    // Regla de privacidad de la dirección
+    let showAddress = false;
+    if (role === UserRole.SUPERADMIN || role === UserRole.ADMIN) {
+      showAddress = true;
+    } else if (role === UserRole.HOST && property.usuarioId === userId) {
+      showAddress = true;
+    } else if (role === UserRole.GUEST) {
+      const confirmedBooking = await this.bookingRepository.findOne({
+        where: [
+          { propertyId: property.id, usuarioId: userId, status: BookingStatus.CONFIRMED },
+          { propertyId: property.id, usuarioId: userId, status: BookingStatus.COMPLETED }
+        ]
+      });
+      if (confirmedBooking) showAddress = true;
+    }
+
+    if (!showAddress) {
+      property.address = undefined as any;
+    }
 
     return property;
   }
