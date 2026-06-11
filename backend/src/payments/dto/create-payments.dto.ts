@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsOptional, IsString, Matches, Min } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+  Min,
+} from 'class-validator';
 import { PaymentStatus, PaymentType } from '../payments.entity';
 
 /**
@@ -42,4 +49,4 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsNumber()
   bookingId?: number;
-}
+}

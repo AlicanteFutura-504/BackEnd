@@ -8,7 +8,9 @@ import { Usuario } from '../usuarios/usuario.entity';
 import { Payment } from '../payments/payments.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Property, BookingEntity, Usuario, Payment])],
+  imports: [
+    TypeOrmModule.forFeature([Property, BookingEntity, Usuario, Payment]),
+  ],
   controllers: [DashboardController],
   providers: [DashboardService],
 })

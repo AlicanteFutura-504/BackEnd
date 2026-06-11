@@ -31,7 +31,16 @@ export class PropertyController {
     @Query('filterField') filterField?: string,
     @Query('filterValue') filterValue?: string
   ) {
-    const user = req.user || { userId: 0, role: UserRole.GUEST, username: 'anonymous' };
+    let user = req.user;
+    if (!user && req.headers.authorization) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        const payloadBase64 = token.split('.')[1];
+        const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+        user = { userId: payload.sub, role: payload.role, username: payload.username };
+      } catch (e) {}
+    }
+    user = user || { userId: 0, role: UserRole.GUEST, username: 'anonymous' };
     return this.propertyService.findAll(
       user.userId, 
       user.role, 
@@ -49,7 +58,16 @@ export class PropertyController {
   @Public()
   @Get(':id')
   async findOne(@Param('id') id: string, @Req() req: any) {
-    const user = req.user || { userId: 0, role: UserRole.GUEST, username: 'anonymous' };
+    let user = req.user;
+    if (!user && req.headers.authorization) {
+      try {
+        const token = req.headers.authorization.split(' ')[1];
+        const payloadBase64 = token.split('.')[1];
+        const payload = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+        user = { userId: payload.sub, role: payload.role, username: payload.username };
+      } catch (e) {}
+    }
+    user = user || { userId: 0, role: UserRole.GUEST, username: 'anonymous' };
     return this.propertyService.findOne(+id, user.userId, user.role, user.username);
   }
 

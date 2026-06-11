@@ -1,4 +1,9 @@
-import { Injectable, ConflictException, OnModuleInit, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  OnModuleInit,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Usuario, UserRole } from './usuario.entity';
@@ -25,7 +30,9 @@ export class UsuariosService implements OnModuleInit {
   }
 
   private async seedRootUser() {
-    const rootUser = await this.usuariosRepository.findOne({ where: { username: 'root' } });
+    const rootUser = await this.usuariosRepository.findOne({
+      where: { username: 'root' },
+    });
     if (!rootUser) {
       const hashedContrasena = await bcrypt.hash('root', 10);
       const nuevoRoot = this.usuariosRepository.create({
@@ -59,7 +66,9 @@ export class UsuariosService implements OnModuleInit {
     });
 
     if (existing) {
-      throw new ConflictException('El usuario, email o DNI ya existe en el sistema');
+      throw new ConflictException(
+        'El usuario, email o DNI ya existe en el sistema',
+      );
     }
 
     const hashedContrasena = await bcrypt.hash(contrasena, 10);
@@ -83,7 +92,17 @@ export class UsuariosService implements OnModuleInit {
   async findByIdentifier(identifier: string): Promise<Usuario | null> {
     return this.usuariosRepository.findOne({
       where: [{ username: identifier }, { email: identifier }],
-      select: ['id', 'username', 'email', 'contrasena', 'role', 'nombreCompleto', 'dni', 'phone', 'profilePicture'], // Añadimos campos necesarios
+      select: [
+        'id',
+        'username',
+        'email',
+        'contrasena',
+        'role',
+        'nombreCompleto',
+        'dni',
+        'phone',
+        'profilePicture',
+      ], // Añadimos campos necesarios
     });
   }
 
@@ -129,7 +148,9 @@ export class UsuariosService implements OnModuleInit {
       });
 
       if (conflictCheck && conflictCheck.id !== id) {
-        throw new ConflictException('El nombre de usuario, email o DNI ya está en uso');
+        throw new ConflictException(
+          'El nombre de usuario, email o DNI ya está en uso',
+        );
       }
     }
 
@@ -142,14 +163,19 @@ export class UsuariosService implements OnModuleInit {
     return this.usuariosRepository.save(usuario);
   }
 
-  async findAllClients(page: number = 1, limit: number = 20, search: string = ''): Promise<{ data: Usuario[], total: number }> {
-    const query = this.usuariosRepository.createQueryBuilder('usuario')
+  async findAllClients(
+    page: number = 1,
+    limit: number = 20,
+    search: string = '',
+  ): Promise<{ data: Usuario[]; total: number }> {
+    const query = this.usuariosRepository
+      .createQueryBuilder('usuario')
       .where('usuario.role = :role', { role: UserRole.GUEST });
 
     if (search) {
       query.andWhere(
         '(usuario.nombreCompleto ILIKE :search OR usuario.email ILIKE :search OR usuario.phone ILIKE :search)',
-        { search: `%${search}%` }
+        { search: `%${search}%` },
       );
     }
 
@@ -162,8 +188,14 @@ export class UsuariosService implements OnModuleInit {
     return { data, total };
   }
 
-  async findClientsByProperty(propertyId: number, page: number = 1, limit: number = 20, search: string = ''): Promise<{ data: Usuario[], total: number }> {
-    const query = this.usuariosRepository.createQueryBuilder('usuario')
+  async findClientsByProperty(
+    propertyId: number,
+    page: number = 1,
+    limit: number = 20,
+    search: string = '',
+  ): Promise<{ data: Usuario[]; total: number }> {
+    const query = this.usuariosRepository
+      .createQueryBuilder('usuario')
       .innerJoin('booking', 'booking', 'booking."usuarioId" = usuario.id')
       .where('booking."propertyId" = :propertyId', { propertyId })
       .andWhere('usuario.role = :role', { role: UserRole.GUEST });
@@ -171,14 +203,14 @@ export class UsuariosService implements OnModuleInit {
     if (search) {
       query.andWhere(
         '(usuario.nombreCompleto ILIKE :search OR usuario.email ILIKE :search OR usuario.phone ILIKE :search)',
-        { search: `%${search}%` }
+        { search: `%${search}%` },
       );
     }
 
     // Usar subconsulta o agrupar para evitar duplicados si un cliente tiene múltiples citas
     const [data, total] = await query
       .select('usuario') // asegurarnos de seleccionar solo la entidad usuario
-      .distinct(true)    // evitar duplicados
+      .distinct(true) // evitar duplicados
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
@@ -193,35 +225,43 @@ export class UsuariosService implements OnModuleInit {
     }
     await this.usuariosRepository.remove(usuario);
   }
-  async getGuestTrustScore(guestId: number): Promise<{ score: number, status: string }> {
+  async getGuestTrustScore(
+    guestId: number,
+  ): Promise<{ score: number; status: string }> {
     const { avgRating } = await this.guestRatingRepository
       .createQueryBuilder('gr')
       .select('AVG(gr.score)', 'avgRating')
       .where('gr.guestId = :guestId', { guestId })
       .getRawOne();
-      
+
     const avg = parseFloat(avgRating) || 5; // Default a 5 si no hay valoraciones
     const hostRatingScore = (avg / 5) * 50;
 
     const bookings = await this.bookingsRepository.find({
       where: { usuarioId: guestId },
-      relations: ['payment']
+      relations: ['payment'],
     });
 
     const totalBookings = bookings.length;
     let completedAndPaid = 0;
     for (const b of bookings) {
-      if ((b.status === 'confirmed' || b.status === 'completed') && b.payment?.status === 'pagado') {
+      if (
+        (b.status === 'confirmed' || b.status === 'completed') &&
+        b.payment?.status === 'pagado'
+      ) {
         completedAndPaid++;
       }
     }
 
-    const completionRate = totalBookings > 0 ? (completedAndPaid / totalBookings) : 1;
+    const completionRate =
+      totalBookings > 0 ? completedAndPaid / totalBookings : 1;
     const completionScore = completionRate * 30;
 
     const loyaltyScore = Math.min((totalBookings / 5) * 20, 20);
 
-    const totalScore = Math.round(hostRatingScore + completionScore + loyaltyScore);
+    const totalScore = Math.round(
+      hostRatingScore + completionScore + loyaltyScore,
+    );
 
     let status = 'Neutral';
     if (totalScore >= 80) status = 'Promoter';
@@ -230,4 +270,3 @@ export class UsuariosService implements OnModuleInit {
     return { score: totalScore, status };
   }
 }
-

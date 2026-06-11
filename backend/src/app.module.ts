@@ -27,14 +27,17 @@ import { MailerModule } from './mailer/mailer.module';
     TypeOrmModule.forRootAsync({
       useFactory: () => {
         if (!process.env.DATABASE_URL) {
-          throw new Error("DATABASE_URL is not defined in the environment variables.");
+          throw new Error(
+            'DATABASE_URL is not defined in the environment variables.',
+          );
         }
         return {
           type: 'postgres',
           url: process.env.DATABASE_URL,
           autoLoadEntities: true,
           // NUNCA activar synchronize en producción: usar migraciones
-          synchronize: process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
+          synchronize:
+            process.env.NODE_ENV === 'development' || !process.env.NODE_ENV,
         };
       },
     }),
@@ -59,4 +62,4 @@ import { MailerModule } from './mailer/mailer.module';
     },
   ],
 })
-export class AppModule { }
+export class AppModule {}

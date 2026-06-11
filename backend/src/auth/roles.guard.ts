@@ -11,26 +11,26 @@ export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    
+    const requiredRoles = this.reflector.getAllAndOverride<UserRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
     if (!requiredRoles) {
       return true; // Si no hay roles requeridos, se permite el acceso (otras guards como JWT pueden bloquearlo de todos modos)
     }
-    
+
     const { user } = context.switchToHttp().getRequest();
-    
+
     if (!user || !user.role) {
       return false; // Sin usuario o rol en el JWT, acceso denegado
     }
-    
+
     // El SUPERADMIN tiene acceso a todo.
     if (user.role === UserRole.SUPERADMIN) {
       return true;
     }
-    
+
     return requiredRoles.includes(user.role);
   }
 }

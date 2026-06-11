@@ -40,20 +40,24 @@ export class PropertyService {
   }
 
   async findAll(
-    userId: number, 
-    role: UserRole, 
-    username?: string, 
-    page: number = 1, 
-    limit: number = 20, 
+    userId: number,
+    role: UserRole,
+    username?: string,
+    page: number = 1,
+    limit: number = 20,
     search: string = '',
     sortBy: string = 'id',
     sortOrder: 'ASC' | 'DESC' = 'DESC',
     filterField?: string,
-    filterValue?: string
-  ): Promise<{ data: Property[], total: number }> {
+    filterValue?: string,
+  ): Promise<{ data: Property[]; total: number }> {
     const query = this.propertyRepository.createQueryBuilder('property');
-    
-    if (role === UserRole.SUPERADMIN || role === UserRole.GUEST || role === UserRole.ADMIN) {
+
+    if (
+      role === UserRole.SUPERADMIN ||
+      role === UserRole.GUEST ||
+      role === UserRole.ADMIN
+    ) {
       if (role === UserRole.SUPERADMIN || role === UserRole.ADMIN) {
         query.leftJoinAndSelect('property.host', 'usuario');
       }
@@ -64,10 +68,14 @@ export class PropertyService {
     }
 
     if (search) {
-      const searchCondition = '(LOWER(property.nombre) LIKE LOWER(:search) OR LOWER(property.city) LIKE LOWER(:search) OR LOWER(property.address) LIKE LOWER(:search) OR LOWER(property.telefono) LIKE LOWER(:search))';
-      
+      const searchCondition =
+        '(LOWER(property.nombre) LIKE LOWER(:search) OR LOWER(property.city) LIKE LOWER(:search) OR LOWER(property.address) LIKE LOWER(:search) OR LOWER(property.telefono) LIKE LOWER(:search))';
+
       if (role === UserRole.SUPERADMIN || role === UserRole.ADMIN) {
-        query.andWhere(`(${searchCondition} OR LOWER(usuario.nombreCompleto) LIKE LOWER(:search) OR LOWER(usuario.username) LIKE LOWER(:search))`, { search: `%${search}%` });
+        query.andWhere(
+          `(${searchCondition} OR LOWER(usuario.nombreCompleto) LIKE LOWER(:search) OR LOWER(usuario.username) LIKE LOWER(:search))`,
+          { search: `%${search}%` },
+        );
       } else {
         query.andWhere(searchCondition, { search: `%${search}%` });
       }
@@ -76,18 +84,31 @@ export class PropertyService {
     // Specific filters
     if (filterField && filterValue) {
       if (filterField === 'has_phone') {
-        if (filterValue === 'true') query.andWhere('property.telefono IS NOT NULL');
+        if (filterValue === 'true')
+          query.andWhere('property.telefono IS NOT NULL');
         else query.andWhere('property.telefono IS NULL');
       } else if (filterField === 'has_address') {
-        if (filterValue === 'true') query.andWhere('property.address IS NOT NULL');
+        if (filterValue === 'true')
+          query.andWhere('property.address IS NOT NULL');
         else query.andWhere('property.address IS NULL');
       } else {
-        query.andWhere(`LOWER(property.${filterField}) LIKE LOWER(:filterValue)`, { filterValue: `%${filterValue}%` });
+        query.andWhere(
+          `LOWER(property.${filterField}) LIKE LOWER(:filterValue)`,
+          { filterValue: `%${filterValue}%` },
+        );
       }
     }
 
     // Sorting
-    const allowedSortFields = ['id', 'nombre', 'city', 'address', 'telefono', 'pricePerNight', 'maxGuests'];
+    const allowedSortFields = [
+      'id',
+      'nombre',
+      'city',
+      'address',
+      'telefono',
+      'pricePerNight',
+      'maxGuests',
+    ];
     if (allowedSortFields.includes(sortBy)) {
       query.orderBy(`property.${sortBy}`, sortOrder);
     } else {
@@ -117,35 +138,50 @@ export class PropertyService {
     return { data, total };
   }
 
-  async getPropertyScore(propertyId: number): Promise<{ average: number, isPromoted: boolean }> {
-    const { avgRating } = await this.reviewRepository
+  async getPropertyScore(
+    propertyId: number,
+  ): Promise<{ average: number; isPromoted: boolean }> {
+    const result = await this.reviewRepository
       .createQueryBuilder('r')
       .select('AVG(r.score)', 'avgRating')
       .where('r.propertyId = :propertyId', { propertyId })
       .getRawOne();
-      
+
+    const avgRating = result?.avgRating;
     const average = parseFloat(avgRating) || 0;
     const isPromoted = average >= 4.5;
     return { average, isPromoted };
   }
 
-  async findOne(id: number, userId: number, role: UserRole, username?: string): Promise<Property> {
+  async findOne(
+    id: number,
+    userId: number,
+    role: UserRole,
+    username?: string,
+  ): Promise<Property> {
     const where: any = { id };
-    
+
     // Si NO es SUPERADMIN o GUEST o ADMIN, aplicamos las reglas de tenencia
-    if (role !== UserRole.SUPERADMIN && role !== UserRole.GUEST && role !== UserRole.ADMIN) {
+    if (
+      role !== UserRole.SUPERADMIN &&
+      role !== UserRole.GUEST &&
+      role !== UserRole.ADMIN
+    ) {
       if (role === UserRole.HOST) {
         where.usuarioId = userId;
       }
     }
 
-    const property = await this.propertyRepository.findOne({ 
+    const property = await this.propertyRepository.findOne({
       where,
-      relations: role === UserRole.SUPERADMIN || role === UserRole.ADMIN ? ['host'] : []
+      relations:
+        role === UserRole.SUPERADMIN || role === UserRole.ADMIN ? ['host'] : [],
     });
-    
+
     if (!property) {
-      throw new NotFoundException(`Property with ID ${id} not found or access denied`);
+      throw new NotFoundException(
+        `Property with ID ${id} not found or access denied`,
+      );
     }
 
     const scoreObj = await this.getPropertyScore(property.id);
@@ -161,9 +197,17 @@ export class PropertyService {
     } else if (role === UserRole.GUEST) {
       const confirmedBooking = await this.bookingRepository.findOne({
         where: [
-          { propertyId: property.id, usuarioId: userId, status: BookingStatus.CONFIRMED },
-          { propertyId: property.id, usuarioId: userId, status: BookingStatus.COMPLETED }
-        ]
+          {
+            propertyId: property.id,
+            usuarioId: userId,
+            status: BookingStatus.CONFIRMED,
+          },
+          {
+            propertyId: property.id,
+            usuarioId: userId,
+            status: BookingStatus.COMPLETED,
+          },
+        ],
       });
       if (confirmedBooking) showAddress = true;
     }
@@ -175,13 +219,24 @@ export class PropertyService {
     return property;
   }
 
-  async update(id: number, updatePropertyDto: UpdatePropertyDto, userId: number, role: UserRole, username?: string): Promise<Property> {
+  async update(
+    id: number,
+    updatePropertyDto: UpdatePropertyDto,
+    userId: number,
+    role: UserRole,
+    username?: string,
+  ): Promise<Property> {
     const property = await this.findOne(id, userId, role, username);
     await this.propertyRepository.update(id, updatePropertyDto);
     return this.findOne(id, userId, role, username);
   }
 
-  async remove(id: number, userId: number, role: UserRole, username?: string): Promise<void> {
+  async remove(
+    id: number,
+    userId: number,
+    role: UserRole,
+    username?: string,
+  ): Promise<void> {
     const property = await this.findOne(id, userId, role, username);
     await this.propertyRepository.delete(id);
   }

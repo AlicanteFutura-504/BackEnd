@@ -1,4 +1,15 @@
-import { Controller, Post, Body, Patch, Param, ParseIntPipe, Req, Get, Query, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Patch,
+  Param,
+  ParseIntPipe,
+  Req,
+  Get,
+  Query,
+  Delete,
+} from '@nestjs/common';
 import { UsuariosService } from './usuarios.service';
 import { RegisterAdminDto } from './dto/register-admin.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
@@ -37,7 +48,10 @@ export class UsuariosController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Actualizar datos de un usuario' })
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateUsuarioDto) {
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUsuarioDto,
+  ) {
     return this.usuariosService.update(id, dto);
   }
 
@@ -52,7 +66,7 @@ export class UsuariosController {
     return this.usuariosService.findAllClients(
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
-      search || ''
+      search || '',
     );
   }
 
@@ -68,7 +82,7 @@ export class UsuariosController {
       propertyId,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
-      search || ''
+      search || '',
     );
   }
 
@@ -87,7 +101,7 @@ export class UsuariosController {
       dto.contrasena || '1234',
       UserRole.GUEST,
       dto.nombreCompleto,
-      dto.dni
+      dto.dni,
     );
   }
 

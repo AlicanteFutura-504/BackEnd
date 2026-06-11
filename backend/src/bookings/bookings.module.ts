@@ -8,7 +8,11 @@ import { MailerModule } from '../mailer/mailer.module';
 import { UsuariosModule } from '../usuarios/usuarios.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([BookingEntity, Property]), MailerModule, UsuariosModule],
+  imports: [
+    TypeOrmModule.forFeature([BookingEntity, Property]),
+    MailerModule,
+    UsuariosModule,
+  ],
   controllers: [BookingsController],
   providers: [BookingsService],
   exports: [BookingsService],

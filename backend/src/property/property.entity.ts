@@ -1,4 +1,12 @@
-import { Column, Entity, ManyToOne, OneToOne, PrimaryGeneratedColumn, JoinColumn, OneToMany } from 'typeorm';
+import {
+  Column,
+  Entity,
+  ManyToOne,
+  OneToOne,
+  PrimaryGeneratedColumn,
+  JoinColumn,
+  OneToMany,
+} from 'typeorm';
 import { Usuario } from '../usuarios/usuario.entity';
 import { BookingEntity } from '../bookings/booking.entity';
 
@@ -54,7 +62,9 @@ export class Property {
   images: string[];
 
   /** Relación con el Anfitrión (Host) que posee esta propiedad. */
-  @ManyToOne(() => Usuario, (usuario) => usuario.properties, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Usuario, (usuario) => usuario.properties, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'usuarioId' })
   host: Usuario;
 

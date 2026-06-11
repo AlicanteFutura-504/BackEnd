@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { BookingStatus } from './booking.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -42,7 +48,7 @@ export class BookingsService {
       });
       return properties.map((p) => p.id);
     }
-    
+
     return []; // guest o desconocido no tiene acceso por esta vía a consultar IDs ajenos
   }
 
@@ -50,25 +56,25 @@ export class BookingsService {
     user: ReqUser,
     page: number = 1,
     limit: number = 20,
-    search: string = ''
-  ): Promise<{ data: BookingEntity[], total: number }> {
+    search: string = '',
+  ): Promise<{ data: BookingEntity[]; total: number }> {
     const ids = await this.getAccessibleIds(user);
     if (ids !== null && ids.length === 0) return { data: [], total: 0 };
 
-    const query = this.bookingsRepository.createQueryBuilder('booking')
+    const query = this.bookingsRepository
+      .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.usuario', 'usuario')
       .leftJoinAndSelect('booking.property', 'property')
       .leftJoinAndSelect('booking.payment', 'payment');
-      
+
     if (ids !== null) {
       query.where('booking.propertyId IN (:...ids)', { ids });
     }
 
     if (search) {
-      query.andWhere(
-        '(LOWER(booking.status) LIKE LOWER(:search))',
-        { search: `%${search}%` }
-      );
+      query.andWhere('(LOWER(booking.status) LIKE LOWER(:search))', {
+        search: `%${search}%`,
+      });
     }
 
     const [data, total] = await query
@@ -81,52 +87,64 @@ export class BookingsService {
   }
 
   async findByProperty(
-    propertyId: number, 
+    propertyId: number,
     user: ReqUser,
     page: number = 1,
     limit: number = 20,
-    search: string = ''
-  ): Promise<{ data: BookingEntity[], total: number }> {
+    search: string = '',
+  ): Promise<{ data: BookingEntity[]; total: number }> {
     const ids = await this.getAccessibleIds(user);
+    console.log('DEBUG findByProperty:', { propertyId, user, ids });
     if (ids !== null && !ids.includes(propertyId)) {
       throw new ForbiddenException('No tienes acceso a esta propiedad');
     }
-    
-    const query = this.bookingsRepository.createQueryBuilder('booking')
+
+    const query = this.bookingsRepository
+      .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.usuario', 'usuario')
       .leftJoinAndSelect('booking.property', 'property')
       .leftJoinAndSelect('booking.payment', 'payment')
       .where('booking.propertyId = :propertyId', { propertyId });
-      
+
     if (search) {
-      query.andWhere('LOWER(booking.status) LIKE LOWER(:search)', { search: `%${search}%` });
+      query.andWhere('LOWER(booking.status) LIKE LOWER(:search)', {
+        search: `%${search}%`,
+      });
     }
-    
+
     const [data, total] = await query
       .orderBy('booking.checkInDate', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
-      
+
     return { data, total };
   }
 
-  async findByCustomer(usuarioId: number, user: ReqUser): Promise<BookingEntity[]> {
+  async findByCustomer(
+    usuarioId: number,
+    user: ReqUser,
+  ): Promise<BookingEntity[]> {
     const ids = await this.getAccessibleIds(user);
     if (ids === null || user.userId === usuarioId) {
-      return this.bookingsRepository.find({ 
+      return this.bookingsRepository.find({
         where: { usuarioId },
-        relations: ['payment', 'usuario', 'property']
+        relations: ['payment', 'usuario', 'property'],
       });
     }
     if (ids.length === 0) return [];
     return this.bookingsRepository.find({
       where: { usuarioId, propertyId: In(ids) },
-      relations: ['payment', 'usuario', 'property']
+      relations: ['payment', 'usuario', 'property'],
     });
   }
 
-  async findByDateRange(from: string, to: string, user: ReqUser, propertyId?: number): Promise<BookingEntity[]> {
+  async findByDateRange(
+    from: string,
+    to: string,
+    user: ReqUser,
+    propertyId?: number,
+  ): Promise<BookingEntity[]> {
     const ids = await this.getAccessibleIds(user);
     const qb = this.bookingsRepository
       .createQueryBuilder('booking')
@@ -134,7 +152,8 @@ export class BookingsService {
       .andWhere('booking.checkInDate <= :to', { to });
 
     if (propertyId) {
-      if (ids !== null && !ids.includes(propertyId)) throw new ForbiddenException('No tienes acceso a esta propiedad');
+      if (ids !== null && !ids.includes(propertyId))
+        throw new ForbiddenException('No tienes acceso a esta propiedad');
       qb.andWhere('booking.propertyId = :propertyId', { propertyId });
     } else if (ids !== null) {
       if (ids.length === 0) return [];
@@ -148,15 +167,23 @@ export class BookingsService {
     if (!data.propertyId || !data.checkInDate || !data.checkOutDate) {
       throw new BadRequestException('Faltan datos de reserva');
     }
-    const overlap = await this.hasOverlappingBooking(data.propertyId, data.checkInDate, data.checkOutDate);
+    const overlap = await this.hasOverlappingBooking(
+      data.propertyId,
+      data.checkInDate,
+      data.checkOutDate,
+    );
     if (overlap) {
-      throw new ConflictException('La propiedad ya está reservada en esas fechas');
+      throw new ConflictException(
+        'La propiedad ya está reservada en esas fechas',
+      );
     }
 
     if (data.payment && data.usuarioId) {
-      const { status } = await this.usuariosService.getGuestTrustScore(data.usuarioId);
+      const { status } = await this.usuariosService.getGuestTrustScore(
+        data.usuarioId,
+      );
       if (status === 'Promoter') {
-        data.payment.amount = data.payment.amount * 0.90; // 10% de descuento
+        data.payment.amount = data.payment.amount * 0.9; // 10% de descuento
       }
     }
 
@@ -165,8 +192,12 @@ export class BookingsService {
 
     // Enviar notificación
     try {
-      const guest = await this.usuariosService.findOneById(savedBooking.usuarioId);
-      const property = await this.propertyRepository.findOne({ where: { id: savedBooking.propertyId }});
+      const guest = await this.usuariosService.findOneById(
+        savedBooking.usuarioId,
+      );
+      const property = await this.propertyRepository.findOne({
+        where: { id: savedBooking.propertyId },
+      });
       if (guest && property) {
         await this.mailerService.sendBookingNotification({
           guestEmail: guest.email,
@@ -184,21 +215,39 @@ export class BookingsService {
     return savedBooking;
   }
 
-  async update(id: number, data: Partial<BookingEntity>, user: ReqUser): Promise<BookingEntity> {
+  async update(
+    id: number,
+    data: Partial<BookingEntity>,
+    user: ReqUser,
+  ): Promise<BookingEntity> {
     const booking = await this.bookingsRepository.findOne({ where: { id } });
-    if (!booking) throw new NotFoundException(`Booking con ID ${id} no encontrada`);
+    if (!booking)
+      throw new NotFoundException(`Booking con ID ${id} no encontrada`);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && !ids.includes(booking.propertyId) && user.userId !== booking.usuarioId) {
-      throw new ForbiddenException('No tienes permiso para modificar esta reserva');
+    if (
+      ids !== null &&
+      !ids.includes(booking.propertyId) &&
+      user.userId !== booking.usuarioId
+    ) {
+      throw new ForbiddenException(
+        'No tienes permiso para modificar esta reserva',
+      );
     }
 
     // Verificar solapamiento de fechas si se proporcionan nuevas fechas
     if (data.checkInDate && data.checkOutDate) {
       const propertyId = data.propertyId ?? booking.propertyId;
-      const overlap = await this.hasOverlappingBooking(propertyId, data.checkInDate, data.checkOutDate, id);
+      const overlap = await this.hasOverlappingBooking(
+        propertyId,
+        data.checkInDate,
+        data.checkOutDate,
+        id,
+      );
       if (overlap) {
-        throw new ConflictException('La propiedad ya está reservada en esas fechas');
+        throw new ConflictException(
+          'La propiedad ya está reservada en esas fechas',
+        );
       }
     }
 
@@ -207,8 +256,12 @@ export class BookingsService {
 
     // Enviar notificación
     try {
-      const guest = await this.usuariosService.findOneById(updatedBooking.usuarioId);
-      const property = await this.propertyRepository.findOne({ where: { id: updatedBooking.propertyId }});
+      const guest = await this.usuariosService.findOneById(
+        updatedBooking.usuarioId,
+      );
+      const property = await this.propertyRepository.findOne({
+        where: { id: updatedBooking.propertyId },
+      });
       if (guest && property) {
         await this.mailerService.sendBookingNotification({
           guestEmail: guest.email,
@@ -226,11 +279,18 @@ export class BookingsService {
 
   async remove(id: number, user: ReqUser): Promise<void> {
     const booking = await this.bookingsRepository.findOne({ where: { id } });
-    if (!booking) throw new NotFoundException(`Booking con ID ${id} no encontrada`);
+    if (!booking)
+      throw new NotFoundException(`Booking con ID ${id} no encontrada`);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && !ids.includes(booking.propertyId) && user.userId !== booking.usuarioId) {
-      throw new ForbiddenException('No tienes permiso para eliminar esta reserva');
+    if (
+      ids !== null &&
+      !ids.includes(booking.propertyId) &&
+      user.userId !== booking.usuarioId
+    ) {
+      throw new ForbiddenException(
+        'No tienes permiso para eliminar esta reserva',
+      );
     }
 
     await this.bookingsRepository.delete(id);
@@ -242,7 +302,8 @@ export class BookingsService {
     checkOutDate: string,
     excludeBookingId?: number,
   ): Promise<boolean> {
-    const qb = this.bookingsRepository.createQueryBuilder('booking')
+    const qb = this.bookingsRepository
+      .createQueryBuilder('booking')
       .where('booking.propertyId = :propertyId', { propertyId })
       .andWhere('booking.checkInDate < :checkOutDate', { checkOutDate })
       .andWhere('booking.checkOutDate > :checkInDate', { checkInDate })

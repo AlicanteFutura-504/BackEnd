@@ -1,4 +1,16 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, Query, BadRequestException, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  ParseIntPipe,
+  Query,
+  BadRequestException,
+  Req,
+} from '@nestjs/common';
 import { BookingsService } from './bookings.service';
 import { BookingEntity } from './booking.entity';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -17,13 +29,13 @@ export class BookingsController {
     @Req() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('search') search?: string
+    @Query('search') search?: string,
   ) {
     return this.bookingsService.findAll(
       req.user,
       page ? parseInt(page, 10) : 1,
       limit ? parseInt(limit, 10) : 20,
-      search || ''
+      search || '',
     );
   }
 
@@ -37,25 +49,32 @@ export class BookingsController {
   ) {
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!from || !to || !dateRegex.test(from) || !dateRegex.test(to)) {
-      throw new BadRequestException('Los parámetros from y to son obligatorios con formato YYYY-MM-DD');
+      throw new BadRequestException(
+        'Los parámetros from y to son obligatorios con formato YYYY-MM-DD',
+      );
     }
-    return this.bookingsService.findByDateRange(from, to, req.user, propertyId ? parseInt(propertyId, 10) : undefined);
+    return this.bookingsService.findByDateRange(
+      from,
+      to,
+      req.user,
+      propertyId ? parseInt(propertyId, 10) : undefined,
+    );
   }
 
   @Get('property/:propertyId')
   findByProperty(
-    @Param('propertyId') propertyId: string, 
+    @Param('propertyId') propertyId: string,
     @Req() req: any,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('search') search?: string
+    @Query('search') search?: string,
   ) {
     return this.bookingsService.findByProperty(
-      +propertyId, 
+      +propertyId,
       req.user,
       page ? parseInt(page) : 1,
       limit ? parseInt(limit) : 20,
-      search || ''
+      search || '',
     );
   }
 

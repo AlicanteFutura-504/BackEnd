@@ -1,4 +1,12 @@
-import { Column, Entity, PrimaryGeneratedColumn, Unique, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  PrimaryGeneratedColumn,
+  Unique,
+  ManyToOne,
+  JoinColumn,
+  OneToOne,
+} from 'typeorm';
 import { Usuario } from '../usuarios/usuario.entity';
 import { Property } from '../property/property.entity';
 import { Payment } from '../payments/payments.entity';
@@ -42,6 +50,9 @@ export class BookingEntity {
   @JoinColumn({ name: 'propertyId' })
   property: Property;
 
-  @OneToOne(() => Payment, payment => payment.booking, { eager: true, cascade: true })
+  @OneToOne(() => Payment, (payment) => payment.booking, {
+    eager: true,
+    cascade: true,
+  })
   payment: Payment;
 }

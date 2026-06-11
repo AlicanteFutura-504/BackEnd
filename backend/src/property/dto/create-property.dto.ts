@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsInt, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsInt,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 /**
  * DTO para la creación de una empresa.
@@ -40,7 +46,10 @@ export class CreatePropertyDto {
   @MinLength(6)
   contrasena: string;
 
-  @ApiProperty({ example: 1, description: 'ID del jefe/administrador propietario' })
+  @ApiProperty({
+    example: 1,
+    description: 'ID del jefe/administrador propietario',
+  })
   @IsInt()
   usuarioId: number;
 }

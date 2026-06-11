@@ -1,4 +1,10 @@
-import { Column, Entity, PrimaryGeneratedColumn, OneToMany, OneToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  PrimaryGeneratedColumn,
+  OneToMany,
+  OneToOne,
+} from 'typeorm';
 import { Property } from '../property/property.entity';
 
 /**
@@ -6,9 +12,9 @@ import { Property } from '../property/property.entity';
  */
 export enum UserRole {
   SUPERADMIN = 'superadmin', // Desarrolladores / Dueños del SaaS
-  ADMIN = 'admin',           // Gestión de la plataforma
-  HOST = 'host',             // Anfitrión (dueño de propiedades)
-  GUEST = 'guest',           // Huésped que hace reservas
+  ADMIN = 'admin', // Gestión de la plataforma
+  HOST = 'host', // Anfitrión (dueño de propiedades)
+  GUEST = 'guest', // Huésped que hace reservas
 }
 
 /**

@@ -21,7 +21,9 @@ async function bootstrap() {
   // Permite peticiones desde el frontend local en puertos 3000 y 3001,
   // o en la URL indicada por la variable de entorno CORS_ORIGIN.
   const allowedOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+    ? process.env.CORS_ORIGIN.split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
     : ['http://localhost:3001', 'http://localhost:3000'];
 
   app.enableCors({

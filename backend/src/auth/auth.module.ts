@@ -17,7 +17,9 @@ import { Property } from '../property/property.entity';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('JWT_SECRET') || 'super-secret-key-change-this',
+        secret:
+          configService.get<string>('JWT_SECRET') ||
+          'super-secret-key-change-this',
         signOptions: { expiresIn: '1h' },
       }),
       inject: [ConfigService],

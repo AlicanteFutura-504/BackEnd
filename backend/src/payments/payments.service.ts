@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Payment } from './payments.entity';
@@ -41,14 +45,20 @@ export class PaymentsService {
     page: number = 1,
     limit: number = 20,
     search: string = '',
-    propertyId?: string
-  ): Promise<{ data: Payment[], total: number }> {
+    propertyId?: string,
+  ): Promise<{ data: Payment[]; total: number }> {
     const ids = await this.getAccessibleIds(user);
     if (ids !== null && ids.length === 0) return { data: [], total: 0 };
 
-    const query = this.paymentsRepository.createQueryBuilder('payment')
+    const query = this.paymentsRepository
+      .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.booking', 'booking')
-      .leftJoinAndMapOne('payment.customer', Usuario, 'customer', '"customer"."id" = "booking"."usuarioId"');
+      .leftJoinAndMapOne(
+        'payment.customer',
+        Usuario,
+        'customer',
+        '"customer"."id" = "booking"."usuarioId"',
+      );
 
     if (ids !== null) {
       query.where('"booking"."propertyId" IN (:...ids)', { ids });
@@ -56,9 +66,13 @@ export class PaymentsService {
 
     if (propertyId) {
       if (ids !== null) {
-        query.andWhere('"booking"."propertyId" = :bId', { bId: parseInt(propertyId, 10) });
+        query.andWhere('"booking"."propertyId" = :bId', {
+          bId: parseInt(propertyId, 10),
+        });
       } else {
-        query.where('"booking"."propertyId" = :bId', { bId: parseInt(propertyId, 10) });
+        query.where('"booking"."propertyId" = :bId', {
+          bId: parseInt(propertyId, 10),
+        });
       }
     }
 
@@ -73,9 +87,15 @@ export class PaymentsService {
   }
 
   async findOne(id: number) {
-    const payment = await this.paymentsRepository.createQueryBuilder('payment')
+    const payment = await this.paymentsRepository
+      .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.booking', 'booking')
-      .leftJoinAndMapOne('payment.customer', Usuario, 'customer', '"customer"."id" = "booking"."usuarioId"')
+      .leftJoinAndMapOne(
+        'payment.customer',
+        Usuario,
+        'customer',
+        '"customer"."id" = "booking"."usuarioId"',
+      )
       .where('payment.id = :id', { id })
       .getOne();
     if (!payment) throw new NotFoundException(`No existe el pago con id ${id}`);
@@ -91,11 +111,20 @@ export class PaymentsService {
     const payment = await this.findOne(id);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && payment.booking?.propertyId && !ids.includes(payment.booking.propertyId)) {
-      throw new ForbiddenException('No tienes permiso para modificar este pago');
+    if (
+      ids !== null &&
+      payment.booking?.propertyId &&
+      !ids.includes(payment.booking.propertyId)
+    ) {
+      throw new ForbiddenException(
+        'No tienes permiso para modificar este pago',
+      );
     }
 
-    const updatedPayment = this.paymentsRepository.merge(payment, updatePaymentDto);
+    const updatedPayment = this.paymentsRepository.merge(
+      payment,
+      updatePaymentDto,
+    );
     return this.paymentsRepository.save(updatedPayment);
   }
 
@@ -103,13 +132,15 @@ export class PaymentsService {
     const payment = await this.findOne(id);
 
     const ids = await this.getAccessibleIds(user);
-    if (ids !== null && payment.booking?.propertyId && !ids.includes(payment.booking.propertyId)) {
+    if (
+      ids !== null &&
+      payment.booking?.propertyId &&
+      !ids.includes(payment.booking.propertyId)
+    ) {
       throw new ForbiddenException('No tienes permiso para eliminar este pago');
     }
 
     await this.paymentsRepository.remove(payment);
     return { message: `Pago ${id} eliminado correctamente` };
   }
-
-
 }
