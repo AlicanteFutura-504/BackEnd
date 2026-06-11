@@ -220,6 +220,12 @@ export class BookingsService {
     }
 
     const booking = this.bookingsRepository.create(data);
+    
+    // Explicitly set the back-reference so the cascade save assigns the correct bookingId
+    if (booking.payment) {
+      booking.payment.booking = booking;
+    }
+
     const savedBooking = await this.bookingsRepository.save(booking);
 
     // Enviar notificación
@@ -284,7 +290,13 @@ export class BookingsService {
     }
 
     Object.assign(booking, data);
-    const updatedBooking = await this.bookingsRepository.save(booking);
+    let updatedBooking;
+    try {
+      updatedBooking = await this.bookingsRepository.save(booking);
+    } catch (error: any) {
+      console.error("Error saving updated booking:", error);
+      throw new BadRequestException("Error saving booking: " + error.message);
+    }
 
     // Enviar notificación
     try {
