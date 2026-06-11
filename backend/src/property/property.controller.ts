@@ -84,4 +84,22 @@ export class PropertyController {
     const user = req.user;
     return this.propertyService.remove(+id, user.userId, user.role, user.username);
   }
+
+  @Public()
+  @Get(':id/reviews')
+  async getReviews(@Param('id') id: string) {
+    return this.propertyService.findReviewsByProperty(+id);
+  }
+
+  @Post(':id/reviews')
+  @Roles(UserRole.GUEST, UserRole.ADMIN)
+  async createReview(
+    @Param('id') id: string,
+    @Body('score') score: number,
+    @Body('comment') comment: string,
+    @Req() req: any,
+  ) {
+    const guestId = req.user.userId;
+    return this.propertyService.createReview(+id, guestId, score, comment);
+  }
 }

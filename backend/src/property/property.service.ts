@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property } from './property.entity';
@@ -239,5 +239,47 @@ export class PropertyService {
   ): Promise<void> {
     const property = await this.findOne(id, userId, role, username);
     await this.propertyRepository.delete(id);
+  }
+
+  async findReviewsByProperty(propertyId: number): Promise<Review[]> {
+    return this.reviewRepository.find({
+      where: { propertyId },
+      relations: ['guest'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async createReview(
+    propertyId: number,
+    guestId: number,
+    score: number,
+    comment: string,
+  ): Promise<Review> {
+    // Verificar que el huésped tenga una reserva confirmada o completada
+    const hasBooking = await this.bookingRepository.findOne({
+      where: [
+        { propertyId, usuarioId: guestId, status: BookingStatus.CONFIRMED },
+        { propertyId, usuarioId: guestId, status: BookingStatus.COMPLETED },
+      ],
+    });
+
+    if (!hasBooking) {
+      throw new BadRequestException(
+        'Solo puedes dejar una reseña si tienes una reserva confirmada o completada para esta propiedad.',
+      );
+    }
+
+    if (score < 1 || score > 5) {
+      throw new BadRequestException('La puntuación debe estar entre 1 y 5.');
+    }
+
+    const review = this.reviewRepository.create({
+      propertyId,
+      guestId,
+      score,
+      comment: comment || '',
+    });
+
+    return this.reviewRepository.save(review);
   }
 }

@@ -111,7 +111,9 @@ export class PaymentsService {
     const payment = await this.findOne(id);
 
     const ids = await this.getAccessibleIds(user);
+    const isOwner = user.role === 'guest' && payment.booking?.usuarioId === user.userId;
     if (
+      !isOwner &&
       ids !== null &&
       payment.booking?.propertyId &&
       !ids.includes(payment.booking.propertyId)

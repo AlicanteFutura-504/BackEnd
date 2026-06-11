@@ -110,4 +110,10 @@ export class UsuariosController {
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.usuariosService.remove(id);
   }
+
+  @Get(':id/trust-score')
+  @ApiOperation({ summary: 'Obtener el trust score de un huésped' })
+  async getTrustScore(@Param('id', ParseIntPipe) id: number) {
+    return this.usuariosService.getGuestTrustScore(id);
+  }
 }

@@ -10,7 +10,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { BookingEntity } from './booking.entity';
 import { Property } from '../property/property.entity';
-import { Payment } from '../payments/payments.entity';
+import { Payment, PaymentStatus, PaymentType } from '../payments/payments.entity';
 import { MailerService, BookingMailData } from '../mailer/mailer.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
 
@@ -178,7 +178,39 @@ export class BookingsService {
       );
     }
 
-    if (data.payment && data.usuarioId) {
+    // Buscar la propiedad para calcular precio e info si no viene pago
+    const propertyObj = await this.propertyRepository.findOne({
+      where: { id: data.propertyId },
+    });
+    if (!propertyObj) {
+      throw new NotFoundException(`La propiedad con ID ${data.propertyId} no existe`);
+    }
+
+    if (!data.payment) {
+      const checkIn = new Date(data.checkInDate);
+      const checkOut = new Date(data.checkOutDate);
+      const diffTime = Math.abs(checkOut.getTime() - checkIn.getTime());
+      const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+      const totalPrice = diffDays * Number(propertyObj.pricePerNight || 0);
+
+      let finalPrice = totalPrice;
+      if (data.usuarioId) {
+        const { status } = await this.usuariosService.getGuestTrustScore(
+          data.usuarioId,
+        );
+        if (status === 'Promoter') {
+          finalPrice = totalPrice * 0.9; // 10% de descuento
+        }
+      }
+
+      const newPayment = new Payment();
+      newPayment.amount = Number(finalPrice.toFixed(2));
+      newPayment.status = PaymentStatus.PENDING;
+      newPayment.type = PaymentType.PENDING;
+      newPayment.date = new Date().toISOString().split('T')[0];
+
+      data.payment = newPayment;
+    } else if (data.usuarioId) {
       const { status } = await this.usuariosService.getGuestTrustScore(
         data.usuarioId,
       );
