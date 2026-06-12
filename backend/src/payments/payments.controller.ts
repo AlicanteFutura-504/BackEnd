@@ -71,4 +71,10 @@ export class PaymentsController {
   remove(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.paymentsService.remove(id, req.user);
   }
+
+  @Post(':bookingId/mock-checkout')
+  @ApiOkResponse({ description: 'Mock checkout for a booking' })
+  mockCheckout(@Param('bookingId', ParseIntPipe) bookingId: number, @Req() req: any) {
+    return this.paymentsService.mockCheckout(bookingId, req.user);
+  }
 }

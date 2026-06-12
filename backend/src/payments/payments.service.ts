@@ -5,11 +5,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
-import { Payment } from './payments.entity';
+import { Payment, PaymentStatus, PaymentType } from './payments.entity';
 import { CreatePaymentDto } from './dto/create-payments.dto';
 import { UpdatePaymentDto } from './dto/update-payments.dto';
 import { Property } from '../property/property.entity';
 import { Usuario } from '../usuarios/usuario.entity';
+import { BookingEntity, BookingStatus } from '../bookings/booking.entity';
 
 interface ReqUser {
   userId: number;
@@ -25,6 +26,8 @@ export class PaymentsService {
     private readonly paymentsRepository: Repository<Payment>,
     @InjectRepository(Property)
     private readonly propertyRepository: Repository<Property>,
+    @InjectRepository(BookingEntity)
+    private readonly bookingRepository: Repository<BookingEntity>,
   ) {}
 
   private async getAccessibleIds(user: any): Promise<number[] | null> {
@@ -144,5 +147,27 @@ export class PaymentsService {
 
     await this.paymentsRepository.remove(payment);
     return { message: `Pago ${id} eliminado correctamente` };
+  }
+
+  async mockCheckout(bookingId: number, user: ReqUser) {
+    const booking = await this.bookingRepository.findOne({
+      where: { id: bookingId },
+      relations: ['payment']
+    });
+
+    if (!booking) throw new NotFoundException('Booking no encontrada');
+    if (booking.usuarioId !== user.userId) throw new ForbiddenException('No tienes permiso');
+
+    const payment = booking.payment;
+    if (!payment) throw new NotFoundException('Pago no encontrado para esta reserva');
+
+    payment.status = PaymentStatus.PAID;
+    payment.type = PaymentType.CARD; // simulated
+    await this.paymentsRepository.save(payment);
+
+    booking.status = BookingStatus.PENDING_HOST_APPROVAL;
+    await this.bookingRepository.save(booking);
+
+    return { message: 'Pago simulado con éxito', booking };
   }
 }

@@ -154,9 +154,17 @@ export class UsuariosService implements OnModuleInit {
       }
     }
 
-    // Si hay contraseña, encriptarla
+    // Si hay contraseña, encriptarla y verificar la actual
     if (dto.contrasena) {
+      if (!dto.currentPassword) {
+        throw new ConflictException('Se requiere la contraseña actual para cambiarla');
+      }
+      const isMatch = await bcrypt.compare(dto.currentPassword, usuario.contrasena);
+      if (!isMatch) {
+        throw new ConflictException('La contraseña actual es incorrecta');
+      }
       dto.contrasena = await bcrypt.hash(dto.contrasena, 10);
+      delete dto.currentPassword;
     }
 
     Object.assign(usuario, dto);
@@ -228,11 +236,13 @@ export class UsuariosService implements OnModuleInit {
   async getGuestTrustScore(
     guestId: number,
   ): Promise<{ score: number; status: string }> {
-    const { avgRating } = await this.guestRatingRepository
+    const result = await this.guestRatingRepository
       .createQueryBuilder('gr')
       .select('AVG(gr.score)', 'avgRating')
       .where('gr.guestId = :guestId', { guestId })
       .getRawOne();
+
+    const avgRating = result?.avgRating;
 
     const avg = parseFloat(avgRating) || 5; // Default a 5 si no hay valoraciones
     const hostRatingScore = (avg / 5) * 50;

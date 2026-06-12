@@ -6,12 +6,14 @@ import { BookingEntity } from './booking.entity';
 import { Property } from '../property/property.entity';
 import { MailerModule } from '../mailer/mailer.module';
 import { UsuariosModule } from '../usuarios/usuarios.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([BookingEntity, Property]),
     MailerModule,
     UsuariosModule,
+    NotificationsModule,
   ],
   controllers: [BookingsController],
   providers: [BookingsService],

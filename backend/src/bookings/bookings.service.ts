@@ -13,6 +13,7 @@ import { Property } from '../property/property.entity';
 import { Payment, PaymentStatus, PaymentType } from '../payments/payments.entity';
 import { MailerService, BookingMailData } from '../mailer/mailer.service';
 import { UsuariosService } from '../usuarios/usuarios.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 /** Datos del usuario autenticado extraídos del JWT */
 interface ReqUser {
@@ -31,6 +32,7 @@ export class BookingsService {
     private readonly propertyRepository: Repository<Property>,
     private readonly mailerService: MailerService,
     private readonly usuariosService: UsuariosService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -237,17 +239,41 @@ export class BookingsService {
         where: { id: savedBooking.propertyId },
       });
       if (guest && property) {
-        await this.mailerService.sendBookingNotification({
+        const mailData: BookingMailData = {
           guestEmail: guest.email,
           guestName: guest.nombreCompleto || guest.username,
           propertyName: property.nombre,
           checkInDate: savedBooking.checkInDate,
           checkOutDate: savedBooking.checkOutDate,
           status: savedBooking.status as any,
-        });
+        };
+
+        // Notify Guest
+        await this.notificationsService.sendDualNotification(
+          savedBooking.usuarioId,
+          mailData,
+          'booking_created_guest',
+          { bookingId: savedBooking.id }
+        );
+
+        // Notify Host
+        const host = await this.usuariosService.findOneById(property.usuarioId);
+        if (host) {
+          const hostMailData: BookingMailData = {
+            ...mailData,
+            guestEmail: host.email,
+            guestName: host.nombreCompleto || host.username,
+          };
+          await this.notificationsService.sendDualNotification(
+            property.usuarioId,
+            hostMailData,
+            'booking_created_host',
+            { bookingId: savedBooking.id }
+          );
+        }
       }
     } catch (e) {
-      // Ignorar errores de correo
+      console.error('Error sending notification on create:', e);
     }
 
     return savedBooking;
@@ -307,16 +333,44 @@ export class BookingsService {
         where: { id: updatedBooking.propertyId },
       });
       if (guest && property) {
-        await this.mailerService.sendBookingNotification({
+        const mailData: BookingMailData = {
           guestEmail: guest.email,
           guestName: guest.nombreCompleto || guest.username,
           propertyName: property.nombre,
           checkInDate: updatedBooking.checkInDate,
           checkOutDate: updatedBooking.checkOutDate,
-          status: updatedBooking.status as any, // 'modified', 'cancelled', 'confirmed'
-        });
+          status: updatedBooking.status as any,
+        };
+
+        // Notify Guest
+        await this.notificationsService.sendDualNotification(
+          updatedBooking.usuarioId,
+          mailData,
+          `booking_${updatedBooking.status}_guest`,
+          { bookingId: updatedBooking.id }
+        );
+
+        // Notify Host if status changed
+        if (data.status) {
+          const host = await this.usuariosService.findOneById(property.usuarioId);
+          if (host) {
+            const hostMailData: BookingMailData = {
+              ...mailData,
+              guestEmail: host.email,
+              guestName: host.nombreCompleto || host.username,
+            };
+            await this.notificationsService.sendDualNotification(
+              property.usuarioId,
+              hostMailData,
+              `booking_${updatedBooking.status}_host`,
+              { bookingId: updatedBooking.id }
+            );
+          }
+        }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('Error sending notification on update:', e);
+    }
 
     return updatedBooking;
   }
@@ -340,6 +394,58 @@ export class BookingsService {
     await this.bookingsRepository.delete(id);
   }
 
+  async hostDecision(
+    id: number,
+    decision: 'confirmed' | 'cancelled',
+    cancelReason: string,
+    user: ReqUser
+  ): Promise<BookingEntity> {
+    const booking = await this.bookingsRepository.findOne({ where: { id } });
+    if (!booking) throw new NotFoundException('Reserva no encontrada');
+
+    const ids = await this.getAccessibleIds(user);
+    if (ids !== null && !ids.includes(booking.propertyId)) {
+      throw new ForbiddenException('No tienes permiso para decidir sobre esta reserva');
+    }
+
+    if (decision === 'cancelled' && !cancelReason) {
+      throw new BadRequestException('El motivo de cancelación es obligatorio');
+    }
+
+    booking.status = decision === 'confirmed' ? BookingStatus.CONFIRMED : BookingStatus.CANCELLED;
+    if (decision === 'cancelled') {
+      (booking as any).cancelReason = cancelReason;
+    }
+
+    const updatedBooking = await this.bookingsRepository.save(booking);
+
+    // Notificar al huésped
+    try {
+      const guest = await this.usuariosService.findOneById(updatedBooking.usuarioId);
+      const property = await this.propertyRepository.findOne({ where: { id: updatedBooking.propertyId } });
+      if (guest && property) {
+        const mailData: BookingMailData = {
+          guestEmail: guest.email,
+          guestName: guest.nombreCompleto || guest.username,
+          propertyName: property.nombre,
+          checkInDate: updatedBooking.checkInDate,
+          checkOutDate: updatedBooking.checkOutDate,
+          status: updatedBooking.status as any,
+        };
+        await this.notificationsService.sendDualNotification(
+          updatedBooking.usuarioId,
+          mailData,
+          `booking_${updatedBooking.status}_guest`,
+          { bookingId: updatedBooking.id }
+        );
+      }
+    } catch (e) {
+      console.error('Error enviando notificación en hostDecision', e);
+    }
+
+    return updatedBooking;
+  }
+
   private async hasOverlappingBooking(
     propertyId: number,
     checkInDate: string,
@@ -359,5 +465,26 @@ export class BookingsService {
 
     const count = await qb.getCount();
     return count > 0;
+  }
+
+  async getOccupiedDates(propertyId: number): Promise<string[]> {
+    const bookings = await this.bookingsRepository.find({
+      where: {
+        propertyId,
+        status: In([BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.MODIFIED, BookingStatus.COMPLETED] as any[]),
+      },
+      select: ['checkInDate', 'checkOutDate'],
+    });
+
+    const occupiedDates = new Set<string>();
+    for (const b of bookings) {
+      let current = new Date(b.checkInDate);
+      const end = new Date(b.checkOutDate);
+      while (current < end) {
+        occupiedDates.add(current.toISOString().split('T')[0]);
+        current.setDate(current.getDate() + 1);
+      }
+    }
+    return Array.from(occupiedDates);
   }
 }

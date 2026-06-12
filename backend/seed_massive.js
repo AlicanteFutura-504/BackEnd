@@ -69,10 +69,23 @@ async function run() {
     let businessIds = [];
     let propertyHosts = {}; 
     queryValues = [];
+
+    const spainCities = [
+      { name: 'Madrid', lat: 40.4168, lng: -3.7038 },
+      { name: 'Barcelona', lat: 41.3851, lng: 2.1734 },
+      { name: 'Valencia', lat: 39.4699, lng: -0.3774 },
+      { name: 'Alicante', lat: 38.3452, lng: -0.4810 },
+      { name: 'Sevilla', lat: 37.3891, lng: -5.9845 },
+      { name: 'Málaga', lat: 36.7213, lng: -4.4214 }
+    ];
+
     for (let i = 1; i <= NUM_BUSINESSES; i++) {
       const adminId = faker.helpers.arrayElement(adminIds);
       const bName = (faker.location.streetAddress() + ' Apartment').replace(/'/g, "''");
-      const city = faker.location.city().replace(/'/g, "''");
+      const loc = faker.helpers.arrayElement(spainCities);
+      const city = loc.name;
+      const latitude = loc.lat + (Math.random() - 0.5) * 0.05;
+      const longitude = loc.lng + (Math.random() - 0.5) * 0.05;
       const address = faker.location.streetAddress().replace(/'/g, "''");
       const bPhone = faker.phone.number({ style: 'national' });
       const desc = faker.lorem.paragraph().replace(/'/g, "''");
@@ -81,10 +94,10 @@ async function run() {
       const amenities = JSON.stringify(['Wifi', 'Cocina', 'TV', 'Aire acondicionado']).replace(/'/g, "''");
       const images = JSON.stringify([faker.image.urlLoremFlickr({ category: 'apartment' })]).replace(/'/g, "''");
       
-      queryValues.push(`('${bName}', '${city}', '${address}', '${bPhone}', ${adminId}, '${desc}', ${price}, ${maxGuests}, '${amenities}', '${images}')`);
+      queryValues.push(`('${bName}', '${city}', '${address}', '${bPhone}', ${adminId}, '${desc}', ${price}, ${maxGuests}, '${amenities}', '${images}', ${latitude}, ${longitude})`);
       
       if (queryValues.length >= CHUNK_SIZE || i === NUM_BUSINESSES) {
-        const bQuery = `INSERT INTO property (nombre, city, address, telefono, "usuarioId", description, "pricePerNight", "maxGuests", amenities, images) VALUES ${queryValues.join(',')} RETURNING id, "usuarioId";`;
+        const bQuery = `INSERT INTO property (nombre, city, address, telefono, "usuarioId", description, "pricePerNight", "maxGuests", amenities, images, latitude, longitude) VALUES ${queryValues.join(',')} RETURNING id, "usuarioId";`;
         const bRes = await client.query(bQuery);
         businessIds.push(...bRes.rows.map(r => r.id));
         bRes.rows.forEach(r => { propertyHosts[r.id] = r.usuarioId; });
@@ -94,20 +107,36 @@ async function run() {
 
     console.log(`Generando ${NUM_CUSTOMERS} clientes...`);
     let customerIds = [];
+    let customerBiases = {}; // ID -> 'promoter' | 'detractor' | 'neutral'
     queryValues = [];
     for (let i = 1; i <= NUM_CUSTOMERS; i++) {
       const u = generateUserSense('guest');
+      let bias = 'neutral';
+      
       if (i === 1) {
          u.email = 'huesped1@dev.com';
          u.username = 'huesped1';
+         bias = 'promoter'; // El 1 siempre es promotor
+      } else if (i % 3 === 0) {
+         bias = 'promoter';
+      } else if (i % 5 === 0) {
+         bias = 'detractor';
       }
+
       const fakeDni = `${String(i).padStart(8, '0')}Y`;
       queryValues.push(`('${u.username}', '${u.nombreCompleto.replace(/'/g, "''")}', '${fakeDni}', '${u.email}', '${passwordHash}', '${u.profilePicture}', 'guest', '${u.phone}')`);
       
       if (queryValues.length >= CHUNK_SIZE || i === NUM_CUSTOMERS) {
         const query = `INSERT INTO usuarios (username, "nombreCompleto", dni, email, contrasena, "profilePicture", role, phone) VALUES ${queryValues.join(',')} RETURNING id;`;
         const res = await client.query(query);
-        customerIds.push(...res.rows.map(r => r.id));
+        res.rows.forEach((r, idx) => {
+          customerIds.push(r.id);
+          const originalI = i - res.rows.length + 1 + idx;
+          let rBias = 'neutral';
+          if (originalI === 1 || originalI % 3 === 0) rBias = 'promoter';
+          else if (originalI % 5 === 0) rBias = 'detractor';
+          customerBiases[r.id] = rBias;
+        });
         queryValues = [];
       }
     }
@@ -134,11 +163,14 @@ async function run() {
         currentDate.setDate(currentDate.getDate() + duration);
         const checkOutDate = currentDate.toISOString().split('T')[0];
 
-        bEntityQueryValues.push({ checkInDate, checkOutDate, status, cId, bId });
+        const cancelReason = status === 'cancelled' ? faker.helpers.arrayElement(['Cambio de planes', 'Enfermedad', 'Problemas de transporte']) : null;
+        const cancelReasonStr = cancelReason ? `'${cancelReason}'` : 'NULL';
+
+        bEntityQueryValues.push({ checkInDate, checkOutDate, status, cId, bId, cancelReasonStr });
 
         if (bEntityQueryValues.length >= CHUNK_SIZE || (bId === businessIds[businessIds.length - 1] && j === BOOKINGS_PER_BUSINESS - 1)) {
-          const valStrings = bEntityQueryValues.map(b => `('${b.checkInDate}', '${b.checkOutDate}', '${b.status}', ${b.cId}, ${b.bId})`);
-          const bQuery = `INSERT INTO booking ("checkInDate", "checkOutDate", status, "usuarioId", "propertyId") VALUES ${valStrings.join(',')} RETURNING id, "usuarioId", "propertyId", status;`;
+          const valStrings = bEntityQueryValues.map(b => `('${b.checkInDate}', '${b.checkOutDate}', '${b.status}', ${b.cId}, ${b.bId}, ${b.cancelReasonStr})`);
+          const bQuery = `INSERT INTO booking ("checkInDate", "checkOutDate", status, "usuarioId", "propertyId", "cancelReason") VALUES ${valStrings.join(',')} RETURNING id, "usuarioId", "propertyId", status;`;
           const bRes = await client.query(bQuery);
           
           if (bRes.rows.length > 0) {
@@ -154,23 +186,47 @@ async function run() {
             let guestRatingValues = [];
             for (const row of bRes.rows) {
                if (row.status === 'confirmed') { 
+                  const bias = customerBiases[row.usuarioId] || 'neutral';
+                  
                   if (Math.random() < 0.8) {
-                     const score = faker.number.int({ min: 1, max: 5 });
+                     let score = faker.number.int({ min: 1, max: 5 });
+                     if (bias === 'promoter') score = faker.number.int({ min: 4, max: 5 });
+                     if (bias === 'detractor') score = faker.number.int({ min: 1, max: 2 });
+                     
                      const comment = faker.lorem.sentence().substring(0, 300).replace(/'/g, "''");
                      reviewValues.push(`(${row.propertyId}, ${row.usuarioId}, ${score}, '${comment}')`);
                   }
                   if (Math.random() < 0.8) {
-                     const score = faker.number.int({ min: 1, max: 5 });
+                     let score = faker.number.int({ min: 1, max: 5 });
+                     if (bias === 'promoter') score = faker.number.int({ min: 4, max: 5 });
+                     if (bias === 'detractor') score = faker.number.int({ min: 1, max: 2 });
+
                      const hostId = propertyHosts[row.propertyId];
                      guestRatingValues.push(`(${row.usuarioId}, ${hostId}, ${score})`);
                   }
                }
             }
-            if (reviewValues.length > 0) {
-               await client.query(`INSERT INTO review ("propertyId", "guestId", score, comment) VALUES ${reviewValues.join(',')};`);
+            let notificationValues = [];
+            for (const row of bRes.rows) {
+               const hostId = propertyHosts[row.propertyId];
+               notificationValues.push(`(${row.usuarioId}, 'Reserva generada', 'Tu reserva ha sido registrada con estado ${row.status}.', 'booking_${row.status}_guest', ${row.id}, NULL, '/mis-reservas')`);
+               notificationValues.push(`(${hostId}, 'Interacción de reserva', 'Reserva con estado ${row.status} registrada.', 'booking_${row.status}_host', ${row.id}, NULL, '/properties')`);
             }
+
+            if (reviewValues.length > 0) {
+               const rRes = await client.query(`INSERT INTO review ("propertyId", "guestId", score, comment) VALUES ${reviewValues.join(',')} RETURNING id, "propertyId";`);
+               for (const rRow of rRes.rows) {
+                 const hostId = propertyHosts[rRow.propertyId];
+                 notificationValues.push(`(${hostId}, 'Nueva reseña', 'Has recibido una nueva reseña de tu propiedad.', 'review_created', NULL, ${rRow.id}, '/properties')`);
+               }
+            }
+            
             if (guestRatingValues.length > 0) {
                await client.query(`INSERT INTO guest_rating ("guestId", "hostId", score) VALUES ${guestRatingValues.join(',')};`);
+            }
+
+            if (notificationValues.length > 0) {
+               await client.query(`INSERT INTO notifications ("userId", title, message, type, "bookingId", "reviewId", link) VALUES ${notificationValues.join(',')};`);
             }
           }
           bEntityQueryValues = [];

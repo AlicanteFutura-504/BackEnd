@@ -13,6 +13,7 @@ import { Payment } from '../payments/payments.entity';
 
 export enum BookingStatus {
   PENDING = 'pending',
+  PENDING_HOST_APPROVAL = 'pending_host_approval',
   CONFIRMED = 'confirmed',
   COMPLETED = 'completed',
   MODIFIED = 'modified',
@@ -55,4 +56,7 @@ export class BookingEntity {
     cascade: true,
   })
   payment: Payment;
+
+  @Column({ type: 'text', nullable: true })
+  cancelReason: string;
 }

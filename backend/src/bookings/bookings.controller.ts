@@ -78,6 +78,11 @@ export class BookingsController {
     );
   }
 
+  @Get('property/:propertyId/occupied-dates')
+  getOccupiedDates(@Param('propertyId', ParseIntPipe) propertyId: number) {
+    return this.bookingsService.getOccupiedDates(propertyId);
+  }
+
   @Get('customer/:usuarioId')
   findByCustomer(@Param('usuarioId') usuarioId: string, @Req() req: any) {
     return this.bookingsService.findByCustomer(+usuarioId, req.user);
@@ -85,8 +90,13 @@ export class BookingsController {
 
   @Post()
   @Roles(UserRole.GUEST, UserRole.HOST, UserRole.ADMIN)
-  create(@Body() createBookingDto: CreateBookingDto) {
-    return this.bookingsService.create(createBookingDto);
+  async create(@Body() createBookingDto: CreateBookingDto) {
+    try {
+      return await this.bookingsService.create(createBookingDto);
+    } catch (e: any) {
+      if (e.status && e.status !== 500) throw e; // Let 400s pass through
+      throw new Error("STACKTRACE: " + (e.stack || e.message));
+    }
   }
 
   @Patch(':id')
@@ -96,6 +106,17 @@ export class BookingsController {
     @Req() req: any,
   ) {
     return this.bookingsService.update(id, updateBookingDto, req.user);
+  }
+
+  @Patch(':id/host-decision')
+  @Roles(UserRole.HOST, UserRole.ADMIN)
+  hostDecision(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('decision') decision: 'confirmed' | 'cancelled',
+    @Body('cancelReason') cancelReason: string,
+    @Req() req: any,
+  ) {
+    return this.bookingsService.hostDecision(id, decision, cancelReason, req.user);
   }
 
   @Delete(':id')

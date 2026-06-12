@@ -29,7 +29,10 @@ export class PropertyController {
     @Query('sortBy') sortBy?: string,
     @Query('sortOrder') sortOrder?: string,
     @Query('filterField') filterField?: string,
-    @Query('filterValue') filterValue?: string
+    @Query('filterValue') filterValue?: string,
+    @Query('lat') lat?: string,
+    @Query('lng') lng?: string,
+    @Query('radius') radius?: string
   ) {
     let user = req.user;
     if (!user && req.headers.authorization) {
@@ -51,7 +54,10 @@ export class PropertyController {
       sortBy,
       (sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC'),
       filterField,
-      filterValue
+      filterValue,
+      lat ? parseFloat(lat) : undefined,
+      lng ? parseFloat(lng) : undefined,
+      radius ? parseFloat(radius) : undefined
     );
   }
 
@@ -101,5 +107,12 @@ export class PropertyController {
   ) {
     const guestId = req.user.userId;
     return this.propertyService.createReview(+id, guestId, score, comment);
+  }
+
+  @Get(':id/can-review')
+  @Roles(UserRole.GUEST, UserRole.HOST, UserRole.ADMIN)
+  async canReview(@Param('id') id: string, @Req() req: any) {
+    const guestId = req.user.userId;
+    return this.propertyService.canReview(+id, guestId);
   }
 }

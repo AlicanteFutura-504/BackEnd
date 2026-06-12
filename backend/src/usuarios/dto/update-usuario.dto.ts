@@ -50,6 +50,14 @@ export class UpdateUsuarioDto {
   contrasena?: string;
 
   @ApiPropertyOptional({
+    example: 'viejaContrasena123',
+    description: 'Contraseña actual requerida para cambiar a una nueva',
+  })
+  @IsOptional()
+  @IsString()
+  currentPassword?: string;
+
+  @ApiPropertyOptional({
     example: '/uploads/avatar.png',
     description: 'Ruta de foto de perfil',
   })

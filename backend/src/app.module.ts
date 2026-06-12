@@ -13,6 +13,7 @@ import { BookingsModule } from './bookings/bookings.module';
 
 import { DashboardModule } from './dashboard/dashboard.module';
 import { MailerModule } from './mailer/mailer.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 /**
  * Módulo raíz de la aplicación NestJS.
@@ -47,8 +48,8 @@ import { MailerModule } from './mailer/mailer.module';
     AuthModule,
     BookingsModule,
     DashboardModule,
-    PaymentsModule,
     MailerModule,
+    NotificationsModule,
   ],
   controllers: [],
   providers: [

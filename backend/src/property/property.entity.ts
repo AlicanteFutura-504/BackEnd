@@ -33,6 +33,14 @@ export class Property {
   @Column({ nullable: true })
   address: string;
 
+  /** Latitud geográfica de la propiedad. */
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude: number;
+
+  /** Longitud geográfica de la propiedad. */
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude: number;
+
   /** Teléfono de contacto de la empresa. */
   @Column({ nullable: true })
   telefono: string;

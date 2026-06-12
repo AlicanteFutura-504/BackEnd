@@ -23,10 +23,32 @@ export class PropertyService {
   ) {}
 
   /**
+   * Geocodifica una dirección usando Nominatim (OSM).
+   */
+  private async geocodeAddress(address: string, city: string): Promise<{ lat: number; lng: number } | null> {
+    try {
+      if (!address && !city) return null;
+      const q = encodeURIComponent(`${address}, ${city}`);
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}`, {
+        headers: { 'User-Agent': 'AlicanteFutura/1.0' }
+      });
+      const data = await res.json();
+      if (data && data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+      }
+    } catch (e) {
+      console.error('Geocoding error:', e);
+    }
+    return null;
+  }
+
+  /**
    * Crea una nueva propiedad.
    */
   async crearEmpresa(dto: CreatePropertyDto): Promise<Property> {
     const { nombre, city, address, telefono, usuarioId } = dto;
+
+    const coords = await this.geocodeAddress(address || '', city || '');
 
     const nuevaPropiedad = this.propertyRepository.create({
       nombre,
@@ -34,6 +56,8 @@ export class PropertyService {
       address,
       telefono,
       usuarioId,
+      latitude: coords?.lat,
+      longitude: coords?.lng,
     });
 
     return this.propertyRepository.save(nuevaPropiedad);
@@ -50,6 +74,9 @@ export class PropertyService {
     sortOrder: 'ASC' | 'DESC' = 'DESC',
     filterField?: string,
     filterValue?: string,
+    lat?: number,
+    lng?: number,
+    radiusInKm: number = 50,
   ): Promise<{ data: Property[]; total: number }> {
     const query = this.propertyRepository.createQueryBuilder('property');
 
@@ -97,6 +124,14 @@ export class PropertyService {
           { filterValue: `%${filterValue}%` },
         );
       }
+    }
+
+    // Geolocation Proximity Filter
+    if (lat !== undefined && lng !== undefined) {
+      query.andWhere(
+        `(6371 * acos(cos(radians(:lat)) * cos(radians(property.latitude)) * cos(radians(property.longitude) - radians(:lng)) + sin(radians(:lat)) * sin(radians(property.latitude)))) <= :radiusInKm`,
+        { lat, lng, radiusInKm }
+      );
     }
 
     // Sorting
@@ -227,6 +262,18 @@ export class PropertyService {
     username?: string,
   ): Promise<Property> {
     const property = await this.findOne(id, userId, role, username);
+
+    // Si cambia ciudad o dirección, actualizamos coordenadas
+    if (updatePropertyDto.address !== undefined || updatePropertyDto.city !== undefined) {
+      const address = updatePropertyDto.address ?? property.address;
+      const city = updatePropertyDto.city ?? property.city;
+      const coords = await this.geocodeAddress(address || '', city || '');
+      if (coords) {
+        (updatePropertyDto as any).latitude = coords.lat;
+        (updatePropertyDto as any).longitude = coords.lng;
+      }
+    }
+
     await this.propertyRepository.update(id, updatePropertyDto);
     return this.findOne(id, userId, role, username);
   }
@@ -255,17 +302,14 @@ export class PropertyService {
     score: number,
     comment: string,
   ): Promise<Review> {
-    // Verificar que el huésped tenga una reserva confirmada o completada
+    // Verificar que el huésped tenga una reserva completada
     const hasBooking = await this.bookingRepository.findOne({
-      where: [
-        { propertyId, usuarioId: guestId, status: BookingStatus.CONFIRMED },
-        { propertyId, usuarioId: guestId, status: BookingStatus.COMPLETED },
-      ],
+      where: { propertyId, usuarioId: guestId, status: BookingStatus.COMPLETED },
     });
 
     if (!hasBooking) {
       throw new BadRequestException(
-        'Solo puedes dejar una reseña si tienes una reserva confirmada o completada para esta propiedad.',
+        'Solo puedes dejar una reseña si tienes una reserva completada para esta propiedad.',
       );
     }
 
@@ -281,5 +325,12 @@ export class PropertyService {
     });
 
     return this.reviewRepository.save(review);
+  }
+
+  async canReview(propertyId: number, guestId: number): Promise<{ canReview: boolean }> {
+    const hasBooking = await this.bookingRepository.findOne({
+      where: { propertyId, usuarioId: guestId, status: BookingStatus.COMPLETED },
+    });
+    return { canReview: !!hasBooking };
   }
 }
