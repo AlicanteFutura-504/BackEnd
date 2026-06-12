@@ -26,6 +26,9 @@ export class Review {
   @Column({ type: 'varchar', length: 300, nullable: true })
   comment: string;
 
+  @Column({ type: 'text', nullable: true })
+  hostReply: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

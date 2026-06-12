@@ -54,12 +54,29 @@ export class BookingsService {
     return []; // guest o desconocido no tiene acceso por esta vía a consultar IDs ajenos
   }
 
+  private async autoCancelExpiredBookings(): Promise<void> {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      await this.bookingsRepository
+        .createQueryBuilder()
+        .update(BookingEntity)
+        .set({ status: BookingStatus.CANCELLED, cancelReason: 'Expirada por falta de pago' })
+        .where('status IN (:...statuses)', { statuses: [BookingStatus.PENDING, BookingStatus.PENDING_HOST_APPROVAL] })
+        .andWhere('checkInDate < :today', { today })
+        .execute();
+    } catch (e) {
+      console.error('Error during autoCancelExpiredBookings:', e);
+    }
+  }
+
   async findAll(
     user: ReqUser,
     page: number = 1,
     limit: number = 20,
     search: string = '',
   ): Promise<{ data: BookingEntity[]; total: number }> {
+    await this.autoCancelExpiredBookings();
+
     const ids = await this.getAccessibleIds(user);
     if (ids !== null && ids.length === 0) return { data: [], total: 0 };
 
@@ -95,6 +112,8 @@ export class BookingsService {
     limit: number = 20,
     search: string = '',
   ): Promise<{ data: BookingEntity[]; total: number }> {
+    await this.autoCancelExpiredBookings();
+
     const ids = await this.getAccessibleIds(user);
     console.log('DEBUG findByProperty:', { propertyId, user, ids });
     if (ids !== null && !ids.includes(propertyId)) {
@@ -127,6 +146,8 @@ export class BookingsService {
     usuarioId: number,
     user: ReqUser,
   ): Promise<BookingEntity[]> {
+    await this.autoCancelExpiredBookings();
+
     const ids = await this.getAccessibleIds(user);
     if (ids === null || user.userId === usuarioId) {
       return this.bookingsRepository.find({
@@ -147,6 +168,8 @@ export class BookingsService {
     user: ReqUser,
     propertyId?: number,
   ): Promise<BookingEntity[]> {
+    await this.autoCancelExpiredBookings();
+
     const ids = await this.getAccessibleIds(user);
     const qb = this.bookingsRepository
       .createQueryBuilder('booking')
@@ -166,6 +189,8 @@ export class BookingsService {
   }
 
   async create(data: Partial<BookingEntity>): Promise<BookingEntity> {
+    await this.autoCancelExpiredBookings();
+
     if (!data.propertyId || !data.checkInDate || !data.checkOutDate) {
       throw new BadRequestException('Faltan datos de reserva');
     }
@@ -276,6 +301,10 @@ export class BookingsService {
       console.error('Error sending notification on create:', e);
     }
 
+    if (savedBooking.payment && savedBooking.payment.booking) {
+      delete (savedBooking.payment as any).booking;
+    }
+    
     return savedBooking;
   }
 
@@ -468,10 +497,12 @@ export class BookingsService {
   }
 
   async getOccupiedDates(propertyId: number): Promise<string[]> {
+    await this.autoCancelExpiredBookings();
+
     const bookings = await this.bookingsRepository.find({
       where: {
         propertyId,
-        status: In([BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.MODIFIED, BookingStatus.COMPLETED] as any[]),
+        status: In([BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.MODIFIED, BookingStatus.TERMINADA] as any[]),
       },
       select: ['checkInDate', 'checkOutDate'],
     });

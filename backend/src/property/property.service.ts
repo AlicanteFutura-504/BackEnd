@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property } from './property.entity';
@@ -240,7 +240,7 @@ export class PropertyService {
           {
             propertyId: property.id,
             usuarioId: userId,
-            status: BookingStatus.COMPLETED,
+            status: BookingStatus.TERMINADA,
           },
         ],
       });
@@ -304,7 +304,7 @@ export class PropertyService {
   ): Promise<Review> {
     // Verificar que el huésped tenga una reserva completada
     const hasBooking = await this.bookingRepository.findOne({
-      where: { propertyId, usuarioId: guestId, status: BookingStatus.COMPLETED },
+      where: { propertyId, usuarioId: guestId, status: BookingStatus.TERMINADA },
     });
 
     if (!hasBooking) {
@@ -329,8 +329,71 @@ export class PropertyService {
 
   async canReview(propertyId: number, guestId: number): Promise<{ canReview: boolean }> {
     const hasBooking = await this.bookingRepository.findOne({
-      where: { propertyId, usuarioId: guestId, status: BookingStatus.COMPLETED },
+      where: { propertyId, usuarioId: guestId, status: BookingStatus.TERMINADA },
     });
     return { canReview: !!hasBooking };
+  }
+
+  async replyToReview(
+    reviewId: number,
+    hostId: number,
+    hostReply: string,
+  ): Promise<Review> {
+    const review = await this.reviewRepository.findOne({
+      where: { id: reviewId },
+      relations: ['property'],
+    });
+
+    if (!review) {
+      throw new NotFoundException('Reseña no encontrada.');
+    }
+
+    if (review.property.usuarioId !== hostId) {
+      throw new ForbiddenException('No tienes permiso para responder a esta reseña.');
+    }
+
+    review.hostReply = hostReply;
+    return this.reviewRepository.save(review);
+  }
+
+  async addImage(propertyId: number, imageUrl: string, userId: number, role: UserRole) {
+    const property = await this.findOne(propertyId, userId, role, 'temp');
+    let images: string[] = [];
+    if (property.images) {
+      if (typeof property.images === 'string') {
+        try {
+          images = JSON.parse(property.images);
+        } catch {
+          images = [property.images as any];
+        }
+      } else if (Array.isArray(property.images)) {
+        images = [...property.images];
+      }
+    }
+    
+    images.push(imageUrl);
+    property.images = images; // TypeORM jsonb handles stringification
+    return this.propertyRepository.save(property);
+  }
+
+  async removeImage(propertyId: number, imageUrl: string, userId: number, role: UserRole) {
+    const property = await this.findOne(propertyId, userId, role, 'temp');
+    let images: string[] = [];
+    if (property.images) {
+      if (typeof property.images === 'string') {
+        try {
+          images = JSON.parse(property.images);
+        } catch {
+          images = [property.images as any];
+        }
+      } else if (Array.isArray(property.images)) {
+        images = [...property.images];
+      }
+    }
+    
+    // Remove the imageUrl from array
+    images = images.filter(url => url !== imageUrl);
+    property.images = images; // TypeORM jsonb handles stringification
+    return this.propertyRepository.save(property);
   }
 }

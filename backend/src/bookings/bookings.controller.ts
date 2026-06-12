@@ -95,7 +95,7 @@ export class BookingsController {
       return await this.bookingsService.create(createBookingDto);
     } catch (e: any) {
       if (e.status && e.status !== 500) throw e; // Let 400s pass through
-      throw new Error("STACKTRACE: " + (e.stack || e.message));
+      throw new BadRequestException("STACKTRACE: " + (e.stack || e.message));
     }
   }
 

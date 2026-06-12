@@ -130,7 +130,13 @@ export class PaymentsService {
       payment,
       updatePaymentDto,
     );
-    return this.paymentsRepository.save(updatedPayment);
+    const saved = await this.paymentsRepository.save(updatedPayment);
+
+    if (updatePaymentDto.status === PaymentStatus.PAID && payment.booking) {
+      payment.booking.status = BookingStatus.CONFIRMED;
+      await this.bookingRepository.save(payment.booking);
+    }
+    return saved;
   }
 
   async remove(id: number, user: ReqUser) {
@@ -165,7 +171,7 @@ export class PaymentsService {
     payment.type = PaymentType.CARD; // simulated
     await this.paymentsRepository.save(payment);
 
-    booking.status = BookingStatus.PENDING_HOST_APPROVAL;
+    booking.status = BookingStatus.CONFIRMED;
     await this.bookingRepository.save(booking);
 
     return { message: 'Pago simulado con éxito', booking };

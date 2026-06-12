@@ -145,7 +145,7 @@ async function run() {
 
     console.log(`Generando Reservas, Pagos, Reseñas y GuestRatings...`);
     let bEntityQueryValues = [];
-    const statuses = ['pending', 'confirmed', 'modified', 'cancelled'];
+    const statuses = ['pending', 'confirmed', 'modified', 'cancelled', 'terminada'];
 
     for (const bId of businessIds) {
       let currentDate = new Date();
@@ -177,7 +177,7 @@ async function run() {
           
           if (bRes.rows.length > 0) {
             const paymentQueryValues = bRes.rows.map((row) => {
-               const pStatus = row.status === 'confirmed' ? 'pagado' : faker.helpers.arrayElement(['pagado', 'pendiente']);
+               const pStatus = (row.status === 'confirmed' || row.status === 'terminada') ? 'pagado' : faker.helpers.arrayElement(['pagado', 'pendiente']);
                const pType = faker.helpers.arrayElement(['tarjeta', 'efectivo', 'transferencia']);
                const amount = faker.number.int({ min: 100, max: 1500 });
                return `(CURRENT_DATE, '${pStatus}', '${pType}', ${amount}, ${row.id})`;
@@ -196,7 +196,9 @@ async function run() {
                      if (bias === 'detractor') score = faker.number.int({ min: 1, max: 2 });
                      
                      const comment = faker.lorem.sentence().substring(0, 300).replace(/'/g, "''");
-                     reviewValues.push(`(${row.propertyId}, ${row.usuarioId}, ${score}, '${comment}')`);
+                     const hasReply = Math.random() < 0.3;
+                     const hostReply = hasReply ? `'${faker.lorem.sentence().substring(0, 300).replace(/'/g, "''")}'` : 'NULL';
+                     reviewValues.push(`(${row.propertyId}, ${row.usuarioId}, ${score}, '${comment}', ${hostReply})`);
                   }
                   if (Math.random() < 0.8) {
                      let score = faker.number.int({ min: 1, max: 5 });
@@ -216,7 +218,7 @@ async function run() {
             }
 
             if (reviewValues.length > 0) {
-               const rRes = await client.query(`INSERT INTO review ("propertyId", "guestId", score, comment) VALUES ${reviewValues.join(',')} RETURNING id, "propertyId";`);
+               const rRes = await client.query(`INSERT INTO review ("propertyId", "guestId", score, comment, "hostReply") VALUES ${reviewValues.join(',')} RETURNING id, "propertyId";`);
                for (const rRow of rRes.rows) {
                  const hostId = propertyHosts[rRow.propertyId];
                  notificationValues.push(`(${hostId}, 'Nueva reseña', 'Has recibido una nueva reseña de tu propiedad.', 'review_created', NULL, ${rRow.id}, '/properties')`);
@@ -229,6 +231,26 @@ async function run() {
 
             if (notificationValues.length > 0) {
                await client.query(`INSERT INTO notifications ("userId", title, message, type, "bookingId", "reviewId", link) VALUES ${notificationValues.join(',')};`);
+            }
+
+            // --- NUEVO: Generar Mensajes (Chat) para las reservas activas ---
+            let messageValues = [];
+            for (const row of bRes.rows) {
+               if (row.status === 'confirmed' || row.status === 'terminada') {
+                  const hostId = propertyHosts[row.propertyId];
+                  // El huésped envía un mensaje
+                  const msg1 = faker.lorem.sentence().substring(0, 200).replace(/'/g, "''");
+                  messageValues.push(`('${msg1}', false, ${row.usuarioId}, ${hostId}, ${row.id})`);
+                  
+                  // A veces el anfitrión responde
+                  if (Math.random() > 0.5) {
+                    const msg2 = faker.lorem.sentence().substring(0, 200).replace(/'/g, "''");
+                    messageValues.push(`('${msg2}', true, ${hostId}, ${row.usuarioId}, ${row.id})`);
+                  }
+               }
+            }
+            if (messageValues.length > 0) {
+               await client.query(`INSERT INTO message (content, "isRead", "senderId", "receiverId", "bookingId") VALUES ${messageValues.join(',')};`);
             }
           }
           bEntityQueryValues = [];

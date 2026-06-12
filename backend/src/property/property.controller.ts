@@ -1,4 +1,8 @@
-import { Controller, Post, Body, Get, Delete, Param, Patch, Req, Query } from '@nestjs/common';
+import { Controller, Post, Body, Get, Delete, Param, Patch, Req, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import * as fs from 'fs';
 import { PropertyService } from './property.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
@@ -6,6 +10,12 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
 import { UserRole } from '../usuarios/usuario.entity';
+
+// Ensure uploads directory exists
+const uploadDir = './uploads/properties';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 @ApiTags('properties')
 @ApiBearerAuth()
@@ -114,5 +124,49 @@ export class PropertyController {
   async canReview(@Param('id') id: string, @Req() req: any) {
     const guestId = req.user.userId;
     return this.propertyService.canReview(+id, guestId);
+  }
+
+  @Post('reviews/:reviewId/reply')
+  @Roles(UserRole.HOST, UserRole.ADMIN)
+  async replyToReview(
+    @Param('reviewId') reviewId: string,
+    @Body('hostReply') hostReply: string,
+    @Req() req: any,
+  ) {
+    const hostId = req.user.userId;
+    return this.propertyService.replyToReview(+reviewId, hostId, hostReply);
+  }
+
+  @Post(':id/images')
+  @Roles(UserRole.HOST, UserRole.ADMIN)
+  @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: './uploads/properties',
+      filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        const ext = extname(file.originalname);
+        cb(null, `${uniqueSuffix}${ext}`);
+      }
+    })
+  }))
+  async uploadImage(
+    @Param('id') id: string,
+    @UploadedFile() file: any,
+    @Req() req: any
+  ) {
+    const user = req.user;
+    const imageUrl = `/uploads/properties/${file.filename}`;
+    return this.propertyService.addImage(+id, imageUrl, user.userId, user.role);
+  }
+
+  @Delete(':id/images')
+  @Roles(UserRole.HOST, UserRole.ADMIN)
+  async deleteImage(
+    @Param('id') id: string,
+    @Body('imageUrl') imageUrl: string,
+    @Req() req: any
+  ) {
+    const user = req.user;
+    return this.propertyService.removeImage(+id, imageUrl, user.userId, user.role);
   }
 }

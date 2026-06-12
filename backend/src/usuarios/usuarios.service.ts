@@ -256,7 +256,7 @@ export class UsuariosService implements OnModuleInit {
     let completedAndPaid = 0;
     for (const b of bookings) {
       if (
-        (b.status === 'confirmed' || b.status === 'completed') &&
+        (b.status === 'confirmed' || b.status === 'terminada') &&
         b.payment?.status === 'pagado'
       ) {
         completedAndPaid++;
